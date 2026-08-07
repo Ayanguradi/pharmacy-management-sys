@@ -1,7 +1,7 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useState, useEffect } from 'react';
 import {
   LayoutDashboard, ShoppingCart, TrendingUp, Package, Users, FileBarChart,
-  Tag, Settings, LogOut, Menu, X, Bell, Search, Pill, ChevronDown,
+  Tag, Settings, LogOut, Menu, X, Bell, Search, Pill, ChevronDown, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import type { View } from '@/types';
 
@@ -44,6 +44,13 @@ interface AppShellProps {
 export function AppShell({ current, onNavigate, onLogout, children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('sidebarCollapsed') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', sidebarCollapsed.toString());
+  }, [sidebarCollapsed]);
 
   const baseView = current.split('-')[0] as View;
   const grouped = navItems.reduce<Record<string, NavItem[]>>((acc, item) => {
@@ -55,42 +62,70 @@ export function AppShell({ current, onNavigate, onLogout, children }: AppShellPr
   return (
     <div className="min-h-screen bg-neutral-100 flex">
       {/* Sidebar - Desktop */}
-      <aside className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 bg-white border-r border-neutral-200 flex flex-col transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="flex items-center gap-2.5 px-5 h-16 border-b border-neutral-200 shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white shadow-sm">
+      <aside className={`fixed lg:sticky top-0 left-0 z-40 h-screen bg-white border-r border-neutral-200 flex flex-col transition-[width,transform] duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} ${sidebarCollapsed ? 'w-[72px]' : 'w-64'}`}>
+        
+        {/* Toggle Button */}
+        <button 
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border border-neutral-200 rounded-full items-center justify-center text-neutral-500 hover:text-neutral-700 hover:border-neutral-300 shadow-sm z-50 transition-colors"
+        >
+          {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
+
+        <div className={`flex items-center px-5 h-16 border-b border-neutral-200 shrink-0 ${sidebarCollapsed ? 'justify-center px-0' : 'gap-2.5'}`}>
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white shadow-sm shrink-0">
             <Pill className="w-5 h-5" />
           </div>
-          <div>
+          <div className={`transition-all duration-200 overflow-hidden whitespace-nowrap ${sidebarCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
             <p className="font-bold text-neutral-800 text-sm leading-tight">MediCore</p>
             <p className="text-xs text-neutral-400">Pharmacy Suite</p>
           </div>
-          <button onClick={() => setMobileOpen(false)} className="ml-auto lg:hidden p-1 text-neutral-400 hover:text-neutral-600">
-            <X className="w-5 h-5" />
-          </button>
+          {!sidebarCollapsed && (
+            <button onClick={() => setMobileOpen(false)} className="ml-auto lg:hidden p-1 text-neutral-400 hover:text-neutral-600">
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
           {Object.entries(grouped).map(([group, items]) => (
             <div key={group}>
-              {group !== 'Main' && <p className="px-3 mb-2 text-xs font-semibold text-neutral-400 uppercase tracking-wider">{group}</p>}
+              {group !== 'Main' && (
+                sidebarCollapsed ? (
+                  <hr className="my-3 mx-2 border-neutral-100" />
+                ) : (
+                  <p className="px-3 mb-2 text-xs font-semibold text-neutral-400 uppercase tracking-wider transition-all duration-200">{group}</p>
+                )
+              )}
               <div className="space-y-1">
                 {items.map((item) => {
                   const active = current === item.id || baseView === item.id ||
                     (item.id === 'purchases' && current.startsWith('purchase')) ||
                     (item.id === 'sales' && current.startsWith('sales'));
                   return (
-                    <button
-                      key={item.id}
-                      onClick={() => { onNavigate(item.id); setMobileOpen(false); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                        active
-                          ? 'bg-primary-50 text-primary-700'
-                          : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-800'
-                      }`}
-                    >
-                      <span className={active ? 'text-primary-600' : 'text-neutral-400'}>{item.icon}</span>
-                      {item.label}
-                    </button>
+                    <div key={item.id} className="relative group">
+                      <button
+                        onClick={() => { onNavigate(item.id); setMobileOpen(false); }}
+                        className={`w-full flex items-center py-2.5 rounded-lg text-sm font-medium transition-all ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} ${
+                          active
+                            ? 'bg-primary-50 text-primary-700'
+                            : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-800'
+                        }`}
+                      >
+                        <span className={`shrink-0 ${active ? 'text-primary-600' : 'text-neutral-400'}`}>{item.icon}</span>
+                        <span className={`transition-all duration-200 overflow-hidden whitespace-nowrap ${sidebarCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
+                          {item.label}
+                        </span>
+                      </button>
+                      
+                      {/* Tooltip */}
+                      {sidebarCollapsed && (
+                        <div className="hidden lg:block absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap">
+                          {item.label}
+                          <div className="absolute top-1/2 -left-1 -translate-y-1/2 border-[4px] border-transparent border-r-neutral-900"></div>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -99,16 +134,33 @@ export function AppShell({ current, onNavigate, onLogout, children }: AppShellPr
         </nav>
 
         <div className="p-3 border-t border-neutral-200 shrink-0">
-          <div className="rounded-xl bg-gradient-to-br from-accent-50 to-primary-50 p-4">
-            <p className="text-xs font-semibold text-neutral-700">Free Trial</p>
-            <p className="text-2xl font-bold text-primary-700 mt-1">11 <span className="text-sm font-normal text-neutral-500">days left</span></p>
-            <div className="h-1.5 bg-white/60 rounded-full mt-2 overflow-hidden">
-              <div className="h-full bg-accent-500 rounded-full" style={{ width: '78%' }} />
+          {sidebarCollapsed ? (
+             <div className="flex flex-col items-center justify-center py-2 relative group cursor-pointer">
+                <div className="relative w-10 h-10 flex items-center justify-center rounded-full bg-accent-50">
+                   <svg className="w-10 h-10 absolute -rotate-90">
+                      <circle cx="20" cy="20" r="16" fill="none" stroke="#e0e7ff" strokeWidth="4" />
+                      <circle cx="20" cy="20" r="16" fill="none" stroke="#6366f1" strokeWidth="4" strokeDasharray="100.53" strokeDashoffset="22.11" strokeLinecap="round" />
+                   </svg>
+                   <span className="text-[10px] font-bold text-primary-700 z-10">11</span>
+                </div>
+                {/* Tooltip for Free Trial */}
+                <div className="hidden lg:block absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap">
+                  11 days left on trial
+                  <div className="absolute top-1/2 -left-1 -translate-y-1/2 border-[4px] border-transparent border-r-neutral-900"></div>
+                </div>
+             </div>
+          ) : (
+            <div className="rounded-xl bg-gradient-to-br from-accent-50 to-primary-50 p-4">
+              <p className="text-xs font-semibold text-neutral-700">Free Trial</p>
+              <p className="text-2xl font-bold text-primary-700 mt-1">11 <span className="text-sm font-normal text-neutral-500">days left</span></p>
+              <div className="h-1.5 bg-white/60 rounded-full mt-2 overflow-hidden">
+                <div className="h-full bg-accent-500 rounded-full" style={{ width: '78%' }} />
+              </div>
+              <button className="mt-3 w-full text-xs font-semibold text-primary-700 bg-white py-2 rounded-lg hover:bg-primary-50 transition-colors">
+                Upgrade Plan
+              </button>
             </div>
-            <button className="mt-3 w-full text-xs font-semibold text-primary-700 bg-white py-2 rounded-lg hover:bg-primary-50 transition-colors">
-              Upgrade Plan
-            </button>
-          </div>
+          )}
         </div>
       </aside>
 

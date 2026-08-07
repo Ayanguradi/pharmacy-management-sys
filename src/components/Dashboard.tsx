@@ -4,14 +4,14 @@ import {
   Plus, ArrowRight, Users, Zap, Clock, IndianRupee, UserPlus, UserCheck, Calendar, ChevronDown, Box
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
-import { AreaChart, Sparkline, DonutChart } from '@/components/charts';
+import { AreaChart, Sparkline, DonutChart, ComboChart } from '@/components/charts';
 import {
   weeklySales, inventoryItems, pendingPOs, distributors,
   formatCurrency,
 } from '@/data';
 import type { View } from '@/types';
 
-export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
+export function Dashboard({ onNavigate, onNavigateWithState }: { onNavigate: (v: View) => void, onNavigateWithState?: (v: View, state?: any) => void }) {
   // Global Date Filter
   const [dateRange, setDateRange] = useState('Today');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -86,6 +86,10 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
         <div>
           <h1 className="text-2xl font-bold text-neutral-800 tracking-tight">Dashboard</h1>
           <p className="text-sm text-neutral-500 mt-1">Welcome back — here's what's happening at Apollo Pharmacy today.</p>
+          <div className="mt-2 text-sm font-medium">
+            <span className="text-danger-600">{paymentsData.distributor.length + paymentsData.customer.length} payments overdue</span>, 
+            <span className="text-amber-600"> {expiryData.expiring.length} items expiring this week</span>.
+          </div>
         </div>
         
         {/* Global Date Range Picker */}
@@ -198,7 +202,19 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
         {/* Payments Due (Moved to Row 2, Col 3) */}
         <Card className="p-0 overflow-hidden shadow-sm flex flex-col h-full border border-neutral-200">
           <div className="p-5 border-b border-neutral-100 bg-white">
-            <h3 className="font-bold text-neutral-800 mb-4">Payments Due</h3>
+            <div className="mb-4">
+              <h3 className="font-bold text-neutral-800">Payments Due</h3>
+              {(() => {
+                const totalDist = paymentsData.distributor.reduce((s, d) => s + d.amount, 0);
+                const totalCust = paymentsData.customer.reduce((s, c) => s + c.amount, 0);
+                const net = totalDist - totalCust;
+                return (
+                  <p className={`text-sm font-semibold mt-1 ${net < 0 ? 'text-danger-600' : 'text-emerald-600'}`}>
+                    Net position: {net < 0 ? '-' : '+'}₹{Math.abs(net).toLocaleString()}
+                  </p>
+                );
+              })()}
+            </div>
             <div className="flex bg-neutral-100/70 p-1 rounded-lg">
               <button 
                 className={`flex-1 text-xs font-semibold py-2 rounded-md transition-all ${paymentsTab === 'customer' ? 'bg-white shadow text-primary-700' : 'text-neutral-500 hover:text-neutral-700'}`}
@@ -238,53 +254,32 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
       {/* Row 3: Performance & Sales */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         
-        {/* Weekly Sales Trend (New AreaChart) */}
-        <Card className="lg:col-span-2 p-6 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-neutral-800">Weekly Sales Trend</h3>
-            <Badge color="green" className="px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <span className="flex items-center gap-1"><Zap className="w-3 h-3"/> Live</span>
-            </Badge>
+        <Card className="lg:col-span-3 p-6 shadow-sm flex flex-col justify-between">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h3 className="text-lg font-bold text-neutral-800">Sales & Purchases Trend</h3>
+              <div className="flex items-center gap-6 mt-2">
+                <span className="flex items-center gap-2 text-sm font-medium text-[#0f766e]">
+                  <span className="w-3 h-3 rounded-full bg-[#0f766e]"/> Sales
+                </span>
+                <span className="flex items-center gap-2 text-sm font-medium text-[#d97706]">
+                  <span className="w-3 h-3 border-2 border-[#d97706] rounded-full bg-white"/> Purchases
+                </span>
+              </div>
+            </div>
+            <div className="text-right">
+              <h4 className="text-sm font-semibold text-neutral-500 mb-1">Net Profit</h4>
+              <div className="flex items-end justify-end gap-2 mb-1">
+                <span className="text-2xl font-black text-neutral-900 tracking-tight">₹4,297.73</span>
+                <span className="text-sm font-bold text-emerald-500 mb-1">+12.5%</span>
+              </div>
+              <div className="w-32 mt-2 ml-auto">
+                <Sparkline data={[120, 150, 140, 200, 180, 263]} color="#10b981" height={24}/>
+              </div>
+            </div>
           </div>
           <div className="flex-1 min-h-[240px]">
-             {/* <AreaChart data={weeklySales.map((d) => ({ label: d.day, value: d.sales, secondary: d.purchases }))} height={240} /> */}
-          </div>
-          <div className="flex items-center justify-center gap-6 mt-4">
-            <span className="flex items-center gap-2 text-sm font-medium text-indigo-500">
-              <span className="w-3 h-3 border-2 border-indigo-500 rounded-full bg-white"/> Purchases
-            </span>
-            <span className="flex items-center gap-2 text-sm font-medium text-emerald-500">
-              <span className="w-3 h-3 border-2 border-emerald-500 rounded-full bg-white"/> Sales
-            </span>
-          </div>
-        </Card>
-
-        {/* Small Profit Chart / Stats */}
-        <Card className="p-6 shadow-sm flex flex-col relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary-50 rounded-full blur-3xl -mr-10 -mt-10 opacity-60"></div>
-          
-          <div className="flex items-center justify-between mb-2 relative z-10">
-            <h3 className="font-semibold text-neutral-800 flex items-center gap-2">Profit <span className="text-xs text-neutral-400 font-normal">Today</span></h3>
-            <span className="text-emerald-500 font-bold">-</span>
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-end gap-2 mb-1">
-              <span className="text-3xl font-black text-neutral-900 tracking-tight">₹297.73</span>
-            </div>
-            <p className="text-xs font-medium text-neutral-400">from ₹0.00 yesterday</p>
-          </div>
-          
-          <div className="mt-auto pt-6 relative z-10">
-             <div className="mb-4">
-               {/* Fixed Sparkline mapping */}
-               {/* <Sparkline data={[120, 150, 140, 200, 180, 263]} color="#5b50f7" height={40}/> */}
-             </div>
-             <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-indigo-500"></div><span className="text-xs font-medium text-neutral-600">Net Profit: <strong className="text-neutral-800">263</strong></span></div>
-             </div>
-             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-pink-500"></div><span className="text-xs font-medium text-neutral-600">Average: <strong className="text-neutral-800">149</strong></span></div>
-             </div>
+             <ComboChart data={weeklySales.map((d) => ({ label: d.day, sales: d.sales, purchases: d.purchases }))} height={240} />
           </div>
         </Card>
       </div>
@@ -314,6 +309,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
                   <th className="px-6 py-4">Company</th>
                   <th className="px-6 py-4">Qty Sold</th>
                   <th className="px-6 py-4">Stock</th>
+                  <th className="px-6 py-4 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-50">
@@ -324,6 +320,13 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
                     <td className="px-6 py-4 font-bold text-neutral-700">{item.sold}</td>
                     <td className="px-6 py-4">
                       <Badge color={item.stock < 50 ? 'red' : 'green'}>{item.stock} left</Badge>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {activeMovingTab === 'slow' ? (
+                        <Button size="sm" variant="outline" onClick={() => onNavigateWithState?.('purchase-returns', { itemName: item.name, batch: 'B-UNKNOWN', reason: 'Slow-moving' })}>Return</Button>
+                      ) : item.stock < 50 ? (
+                        <Button size="sm" variant="outline" onClick={() => onNavigate('purchase-orders')}>Reorder</Button>
+                      ) : null}
                     </td>
                   </tr>
                 ))}
@@ -356,6 +359,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
                 <tr>
                   <th className="px-6 py-3">Item Name</th>
                   <th className="px-6 py-3 text-right">Expiry</th>
+                  <th className="px-6 py-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-50">
@@ -369,6 +373,9 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
                       <span className={`px-2 py-1 rounded text-xs font-bold border ${activeExpiryTab === 'expired' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
                         {new Date(item.expiry).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                       </span>
+                    </td>
+                    <td className="px-6 py-3 text-right">
+                      <Button size="sm" variant="outline" onClick={() => onNavigateWithState?.('purchase-returns', { itemName: item.name, batch: 'B-UNKNOWN', reason: activeExpiryTab === 'expired' ? 'Expired' : 'Near-expiry' })}>Return</Button>
                     </td>
                   </tr>
                 ))}

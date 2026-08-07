@@ -33,7 +33,7 @@ function App() {
   const renderView = () => {
     switch (view) {
       case 'dashboard':
-        return <Dashboard onNavigate={setView} />;
+        return <Dashboard onNavigate={setView} onNavigateWithState={navigateWithState} />;
       case 'purchases':
       case 'purchase-drafts':
       case 'purchase-orders':

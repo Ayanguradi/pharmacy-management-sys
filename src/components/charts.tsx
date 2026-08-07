@@ -163,31 +163,37 @@ export function HBarChart({ data, formatter = (n) => String(n), onRowClick }: HB
   );
 }
 
-interface AreaChartProps {
-  data: { label: string; value: number; secondary: number }[];
+import { useState } from 'react';
+
+interface ComboChartProps {
+  data: { label: string; sales: number; purchases: number }[];
   height?: number;
 }
 
-export function AreaChart({ data, height = 240 }: AreaChartProps) {
-  const max = Math.max(...data.flatMap((d) => [d.value, d.secondary])) || 1;
-  const min = 0; // Fixed min to 0 for better area visualization
+export function ComboChart({ data, height = 240 }: ComboChartProps) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
+  const max = Math.max(...data.flatMap((d) => [d.sales, d.purchases])) || 1;
+  const min = 0; 
   const range = max - min;
   
-  // Primary (Value/Sales - e.g. Teal)
-  const pts1 = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * 100;
-    const y = (height / 3) - ((d.value - min) / range) * (height / 3) * 0.8 - (height / 3) * 0.1;
-    return { x, y, label: d.label };
+  const width = 100;
+  const svgHeight = height / 3;
+
+  // Primary (Sales - Teal #0f766e)
+  const ptsSales = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = svgHeight - ((d.sales - min) / range) * svgHeight * 0.8 - svgHeight * 0.1;
+    return { x, y, ...d };
   });
 
-  // Secondary (Purchases - e.g. Blue/Purple)
-  const pts2 = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * 100;
-    const y = (height / 3) - ((d.secondary - min) / range) * (height / 3) * 0.8 - (height / 3) * 0.1;
-    return { x, y, label: d.label };
+  // Secondary (Purchases - Amber #d97706)
+  const ptsPurchases = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = svgHeight - ((d.purchases - min) / range) * svgHeight * 0.8 - svgHeight * 0.1;
+    return { x, y, ...d };
   });
 
-  // Helper for bezier curve path
   const createBezierPath = (pts: {x: number, y: number}[]) => {
     if (pts.length === 0) return '';
     let d = `M ${pts[0].x} ${pts[0].y}`;
@@ -200,48 +206,91 @@ export function AreaChart({ data, height = 240 }: AreaChartProps) {
     return d;
   };
 
-  const path1 = createBezierPath(pts1);
-  const areaPath1 = `${path1} L 100 ${height / 3} L 0 ${height / 3} Z`;
+  const pathSales = createBezierPath(ptsSales);
+  const areaSales = `${pathSales} L ${width} ${svgHeight} L 0 ${svgHeight} Z`;
 
-  const path2 = createBezierPath(pts2);
-  const areaPath2 = `${path2} L 100 ${height / 3} L 0 ${height / 3} Z`;
+  const pathPurchases = createBezierPath(ptsPurchases);
 
   return (
-    <div className="w-full" style={{ height }}>
-      <svg viewBox={`0 0 100 ${height / 3}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
+    <div className="w-full relative" style={{ height }}>
+      <svg viewBox={`0 -2 ${width} ${svgHeight + 5}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
         <defs>
-          <linearGradient id="areaGradient1" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#12c983" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#12c983" stopOpacity="0.05" />
-          </linearGradient>
-          <linearGradient id="areaGradient2" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#5b50f7" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#5b50f7" stopOpacity="0.05" />
+          <linearGradient id="areaGradientSales" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#0f766e" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#0f766e" stopOpacity="0.0" />
           </linearGradient>
         </defs>
         
         {/* Grid lines */}
         {[0, 0.25, 0.5, 0.75, 1].map((p) => (
-          <line key={p} x1="0" y1={(height / 3) * p} x2="100" y2={(height / 3) * p} stroke="#e2e8f0" strokeWidth="0.15" strokeDasharray="0.5" />
-        ))}
-        {/* Vertical Grid lines */}
-        {pts1.map((p, i) => (
-           <line key={`v${i}`} x1={p.x} y1="0" x2={p.x} y2={height / 3} stroke="#e2e8f0" strokeWidth="0.15" strokeDasharray="0.5" />
+          <line key={p} x1="0" y1={svgHeight * p} x2={width} y2={svgHeight * p} stroke="#e2e8f0" strokeWidth="0.15" strokeDasharray="0.5" />
         ))}
 
-        {/* Secondary Series (Purchases - bottom) */}
-        <path d={areaPath2} fill="url(#areaGradient2)" />
-        <path d={path2} fill="none" stroke="#5b50f7" strokeWidth="0.6" />
+        {/* Primary Series (Sales Area + Line) */}
+        <path d={areaSales} fill="url(#areaGradientSales)" className="transition-all duration-300" />
+        <path d={pathSales} fill="none" stroke="#0f766e" strokeWidth="0.6" strokeLinecap="round" strokeLinejoin="round" className="transition-all duration-300" />
 
-        {/* Primary Series (Sales - top) */}
-        <path d={areaPath1} fill="url(#areaGradient1)" />
-        <path d={path1} fill="none" stroke="#12c983" strokeWidth="0.6" />
+        {/* Secondary Series (Purchases Line Only) */}
+        <path d={pathPurchases} fill="none" stroke="#d97706" strokeWidth="0.6" strokeLinecap="round" strokeLinejoin="round" className="transition-all duration-300" />
 
         {/* X-axis labels */}
-        {pts1.map((p, i) => (
-          <text key={i} x={p.x} y={(height / 3) + 2.5} fontSize="1.8" fill="#94a3b8" textAnchor="middle">{p.label}</text>
+        {ptsSales.map((p, i) => (
+          <text key={i} x={p.x} y={svgHeight + 3.5} fontSize="1.8" fill="#94a3b8" textAnchor="middle">{p.label}</text>
         ))}
+
+        {/* Hover Highlight & Tooltip Line */}
+        {hoverIdx !== null && (
+          <g>
+            <line x1={ptsSales[hoverIdx].x} y1="0" x2={ptsSales[hoverIdx].x} y2={svgHeight} stroke="#cbd5e1" strokeWidth="0.3" strokeDasharray="1" />
+            <circle cx={ptsSales[hoverIdx].x} cy={ptsSales[hoverIdx].y} r="1" fill="#0f766e" stroke="white" strokeWidth="0.4" />
+            <circle cx={ptsPurchases[hoverIdx].x} cy={ptsPurchases[hoverIdx].y} r="1" fill="#d97706" stroke="white" strokeWidth="0.4" />
+          </g>
+        )}
+
+        {/* Invisible Hitboxes for Hover */}
+        {ptsSales.map((p, i) => {
+          const startX = i === 0 ? 0 : (ptsSales[i-1].x + p.x) / 2;
+          const endX = i === ptsSales.length - 1 ? width : (p.x + ptsSales[i+1].x) / 2;
+          return (
+            <rect 
+              key={`hitbox-${i}`} 
+              x={startX} y={0} width={endX - startX} height={svgHeight} 
+              fill="transparent" 
+              onMouseEnter={() => setHoverIdx(i)}
+              onMouseLeave={() => setHoverIdx(null)}
+              className="cursor-crosshair outline-none"
+            />
+          );
+        })}
       </svg>
+      
+      {/* HTML-based Tooltip */}
+      {hoverIdx !== null && (
+        <div 
+          className="absolute z-10 bg-neutral-900 text-white p-3 rounded-lg shadow-xl text-sm pointer-events-none transition-all duration-100 ease-out"
+          style={{ 
+            left: `max(10px, min(calc(${(hoverIdx / (data.length - 1)) * 100}% - 70px), calc(100% - 150px)))`, 
+            top: '20px' 
+          }}
+        >
+          <div className="font-bold mb-2 border-b border-neutral-700 pb-1">{data[hoverIdx].label}</div>
+          <div className="flex justify-between gap-4 mb-1">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#0f766e]"></span> Sales</span>
+            <span className="font-mono">₹{data[hoverIdx].sales.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between gap-4 mb-2">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#d97706]"></span> Purchases</span>
+            <span className="font-mono">₹{data[hoverIdx].purchases.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between gap-4 pt-2 border-t border-neutral-700 font-semibold text-neutral-300">
+            <span>Margin</span>
+            <span className={`font-mono ${data[hoverIdx].sales - data[hoverIdx].purchases >= 0 ? 'text-emerald-400' : 'text-danger-400'}`}>
+              {data[hoverIdx].sales - data[hoverIdx].purchases >= 0 ? '+' : ''}
+              ₹{(data[hoverIdx].sales - data[hoverIdx].purchases).toLocaleString()}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
