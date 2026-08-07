@@ -1,0 +1,343 @@
+interface BarChartProps {
+  data: { label: string; value: number; secondary?: number }[];
+  height?: number;
+  color?: string;
+  secondaryColor?: string;
+}
+
+export function BarChart({ data, height = 200, color = '#1b80f5', secondaryColor = '#12c983' }: BarChartProps) {
+  const max = Math.max(...data.flatMap((d) => [d.value, d.secondary ?? 0]));
+  const barWidth = 100 / data.length;
+  const hasSecondary = data.some((d) => d.secondary !== undefined);
+
+  return (
+    <div className="w-full" style={{ height }}>
+      <svg viewBox={`0 0 100 ${height / 3}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
+        {[0, 0.25, 0.5, 0.75, 1].map((p) => (
+          <line key={p} x1="0" y1={(height / 3) * (1 - p)} x2="100" y2={(height / 3) * (1 - p)} stroke="#e2e8f0" strokeWidth="0.15" strokeDasharray="0.5" />
+        ))}
+        {data.map((d, i) => {
+          const x = i * barWidth + barWidth * 0.15;
+          const w = barWidth * (hasSecondary ? 0.32 : 0.5);
+          const h = (d.value / max) * (height / 3) * 0.9;
+          const h2 = d.secondary ? (d.secondary / max) * (height / 3) * 0.9 : 0;
+          return (
+            <g key={i}>
+              <rect x={x} y={(height / 3) - h} width={w} height={h} rx="0.5" fill={color} className="transition-all duration-300" />
+              {hasSecondary && (
+                <rect x={x + w + barWidth * 0.06} y={(height / 3) - h2} width={w} height={h2} rx="0.5" fill={secondaryColor} opacity="0.7" className="transition-all duration-300" />
+              )}
+              <text x={x + (hasSecondary ? barWidth * 0.35 : barWidth * 0.25)} y={(height / 3) + 1.5} fontSize="1.8" fill="#94a3b8" textAnchor="middle">{d.label}</text>
+            </g>
+          );
+        })}
+      </svg>
+      {hasSecondary && (
+        <div className="flex items-center justify-center gap-4 mt-2">
+          <span className="flex items-center gap-1.5 text-xs text-neutral-500"><span className="w-3 h-3 rounded-sm" style={{ background: color }} />Sales</span>
+          <span className="flex items-center gap-1.5 text-xs text-neutral-500"><span className="w-3 h-3 rounded-sm" style={{ background: secondaryColor }} />Purchases</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface LineChartProps {
+  data: { label: string; value: number }[];
+  height?: number;
+  color?: string;
+}
+
+export function LineChart({ data, height = 200, color = '#1b80f5' }: LineChartProps) {
+  const max = Math.max(...data.map((d) => d.value));
+  const min = Math.min(...data.map((d) => d.value));
+  const range = max - min || 1;
+  const pts = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * 100;
+    const y = (height / 3) - ((d.value - min) / range) * (height / 3) * 0.8 - (height / 3) * 0.1;
+    return { x, y, ...d };
+  });
+  const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const areaPath = `${path} L 100 ${height / 3} L 0 ${height / 3} Z`;
+
+  return (
+    <div className="w-full" style={{ height }}>
+      <svg viewBox={`0 0 100 ${height / 3}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
+        <defs>
+          <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[0, 0.25, 0.5, 0.75, 1].map((p) => (
+          <line key={p} x1="0" y1={(height / 3) * p} x2="100" y2={(height / 3) * p} stroke="#e2e8f0" strokeWidth="0.15" strokeDasharray="0.5" />
+        ))}
+        <path d={areaPath} fill="url(#lineGradient)" />
+        <path d={path} fill="none" stroke={color} strokeWidth="0.6" strokeLinecap="round" strokeLinejoin="round" />
+        {pts.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r="0.8" fill="white" stroke={color} strokeWidth="0.4" />
+            <text x={p.x} y={(height / 3) + 1.5} fontSize="1.8" fill="#94a3b8" textAnchor="middle">{p.label}</text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+interface DonutProps {
+  segments: { label: string; value: number; color: string }[];
+  size?: number;
+}
+
+export function DonutChart({ segments, size = 160 }: DonutProps) {
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+
+  return (
+    <div className="flex items-center gap-6">
+      <svg viewBox="0 0 100 100" style={{ width: size, height: size }} className="-rotate-90">
+        <circle cx="50" cy="50" r={radius} fill="none" stroke="#f1f5f9" strokeWidth="12" />
+        {segments.map((seg, i) => {
+          const len = (seg.value / total) * circumference;
+          const circle = (
+            <circle
+              key={i}
+              cx="50" cy="50" r={radius}
+              fill="none"
+              stroke={seg.color}
+              strokeWidth="12"
+              strokeDasharray={`${len} ${circumference}`}
+              strokeDashoffset={-offset}
+              strokeLinecap="round"
+              className="transition-all duration-500"
+            />
+          );
+          offset += len;
+          return circle;
+        })}
+      </svg>
+      <div className="space-y-2">
+        {segments.map((seg, i) => (
+          <div key={i} className="flex items-center gap-2 text-sm">
+            <span className="w-3 h-3 rounded-sm" style={{ background: seg.color }} />
+            <span className="text-neutral-600">{seg.label}</span>
+            <span className="font-semibold text-neutral-800">{((seg.value / total) * 100).toFixed(0)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface HBarProps {
+  data: { label: string; value: number; color?: string }[];
+  formatter?: (n: number) => string;
+  onRowClick?: (label: string) => void;
+}
+
+export function HBarChart({ data, formatter = (n) => String(n), onRowClick }: HBarProps) {
+  const max = Math.max(...data.map((d) => d.value));
+  return (
+    <div className="space-y-3">
+      {data.map((d, i) => (
+        <div key={i}>
+          <div 
+            className={`flex items-center justify-between mb-1 ${onRowClick ? 'cursor-pointer hover:text-primary-600 transition-colors group' : ''}`}
+            onClick={() => onRowClick && onRowClick(d.label)}
+          >
+            <span className={`text-sm text-neutral-600 ${onRowClick ? 'group-hover:text-primary-600 group-hover:underline' : ''}`}>{d.label}</span>
+            <span className="text-sm font-semibold text-neutral-800">{formatter(d.value)}</span>
+          </div>
+          <div className="h-2.5 bg-neutral-100 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${(d.value / max) * 100}%`, background: d.color ?? '#1b80f5' }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface AreaChartProps {
+  data: { label: string; value: number; secondary: number }[];
+  height?: number;
+}
+
+export function AreaChart({ data, height = 240 }: AreaChartProps) {
+  const max = Math.max(...data.flatMap((d) => [d.value, d.secondary])) || 1;
+  const min = 0; // Fixed min to 0 for better area visualization
+  const range = max - min;
+  
+  // Primary (Value/Sales - e.g. Teal)
+  const pts1 = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * 100;
+    const y = (height / 3) - ((d.value - min) / range) * (height / 3) * 0.8 - (height / 3) * 0.1;
+    return { x, y, label: d.label };
+  });
+
+  // Secondary (Purchases - e.g. Blue/Purple)
+  const pts2 = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * 100;
+    const y = (height / 3) - ((d.secondary - min) / range) * (height / 3) * 0.8 - (height / 3) * 0.1;
+    return { x, y, label: d.label };
+  });
+
+  // Helper for bezier curve path
+  const createBezierPath = (pts: {x: number, y: number}[]) => {
+    if (pts.length === 0) return '';
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const cx = (p1.x + p2.x) / 2;
+      d += ` C ${cx} ${p1.y}, ${cx} ${p2.y}, ${p2.x} ${p2.y}`;
+    }
+    return d;
+  };
+
+  const path1 = createBezierPath(pts1);
+  const areaPath1 = `${path1} L 100 ${height / 3} L 0 ${height / 3} Z`;
+
+  const path2 = createBezierPath(pts2);
+  const areaPath2 = `${path2} L 100 ${height / 3} L 0 ${height / 3} Z`;
+
+  return (
+    <div className="w-full" style={{ height }}>
+      <svg viewBox={`0 0 100 ${height / 3}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
+        <defs>
+          <linearGradient id="areaGradient1" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#12c983" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#12c983" stopOpacity="0.05" />
+          </linearGradient>
+          <linearGradient id="areaGradient2" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#5b50f7" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#5b50f7" stopOpacity="0.05" />
+          </linearGradient>
+        </defs>
+        
+        {/* Grid lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map((p) => (
+          <line key={p} x1="0" y1={(height / 3) * p} x2="100" y2={(height / 3) * p} stroke="#e2e8f0" strokeWidth="0.15" strokeDasharray="0.5" />
+        ))}
+        {/* Vertical Grid lines */}
+        {pts1.map((p, i) => (
+           <line key={`v${i}`} x1={p.x} y1="0" x2={p.x} y2={height / 3} stroke="#e2e8f0" strokeWidth="0.15" strokeDasharray="0.5" />
+        ))}
+
+        {/* Secondary Series (Purchases - bottom) */}
+        <path d={areaPath2} fill="url(#areaGradient2)" />
+        <path d={path2} fill="none" stroke="#5b50f7" strokeWidth="0.6" />
+
+        {/* Primary Series (Sales - top) */}
+        <path d={areaPath1} fill="url(#areaGradient1)" />
+        <path d={path1} fill="none" stroke="#12c983" strokeWidth="0.6" />
+
+        {/* X-axis labels */}
+        {pts1.map((p, i) => (
+          <text key={i} x={p.x} y={(height / 3) + 2.5} fontSize="1.8" fill="#94a3b8" textAnchor="middle">{p.label}</text>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+interface SparklineProps {
+  data: number[];
+  color?: string;
+  width?: number;
+  height?: number;
+}
+
+export function Sparkline({ data, color = '#1b80f5', width = 100, height = 30 }: SparklineProps) {
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  const pts = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * 100;
+    const y = 30 - ((d - min) / range) * 28 - 1;
+    return { x, y };
+  });
+  const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+  return (
+    <div style={{ width: '100%', height: height }}>
+      <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+        <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}
+
+interface StackedHBarProps {
+  data: {
+    label: string;
+    segments: { label: string; value: number; color: string }[];
+  }[];
+  formatter?: (n: number) => string;
+  onRowClick?: (label: string) => void;
+}
+
+export function StackedHBarChart({ data, formatter = (n) => String(n), onRowClick }: StackedHBarProps) {
+  const max = Math.max(...data.map((d) => d.segments.reduce((s, seg) => s + seg.value, 0)));
+  
+  return (
+    <div className="space-y-4">
+      {data.map((d, i) => {
+        const total = d.segments.reduce((s, seg) => s + seg.value, 0);
+        let currentOffset = 0;
+        return (
+          <div key={i} className="group">
+            <div 
+              className={`flex items-center justify-between mb-1 ${onRowClick ? 'cursor-pointer' : ''}`}
+              onClick={() => onRowClick && onRowClick(d.label)}
+            >
+              <span className={`text-sm font-medium text-neutral-700 ${onRowClick ? 'group-hover:text-primary-600 group-hover:underline' : ''}`}>{d.label}</span>
+              <span className="text-sm font-semibold text-neutral-800">{formatter(total)}</span>
+            </div>
+            
+            <div className="h-3 bg-neutral-100 rounded-full flex">
+              <div 
+                className="h-full flex overflow-hidden rounded-full" 
+                style={{ width: max > 0 ? `${(total / max) * 100}%` : '0%' }}
+              >
+                {d.segments.map((seg, j) => {
+                  const width = total > 0 ? (seg.value / total) * 100 : 0;
+                  return (
+                    <div
+                      key={j}
+                      className="h-full transition-all duration-500 relative group/tooltip cursor-default"
+                      style={{ width: `${width}%`, background: seg.color }}
+                    >
+                      <div className="absolute opacity-0 group-hover/tooltip:opacity-100 transition-opacity bg-neutral-800 text-white text-xs rounded px-2 py-1 -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap z-10 pointer-events-none">
+                        {seg.label}: {formatter(seg.value)} ({width.toFixed(1)}%)
+                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-800"></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      
+      {/* Legend */}
+      <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-neutral-100">
+        {Array.from(new Set(data.flatMap(d => d.segments.map(s => s.label)))).map((label, i) => {
+          const color = data.flatMap(d => d.segments).find(s => s.label === label)?.color;
+          return (
+            <div key={i} className="flex items-center gap-1.5 text-xs text-neutral-500">
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />
+              {label}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
