@@ -1,26 +1,30 @@
 import { type ReactNode, useState, useEffect } from 'react';
 import {
   LayoutDashboard, ShoppingCart, TrendingUp, Package, Users, FileBarChart,
-  Tag, Settings, LogOut, Menu, X, Bell, Search, Pill, ChevronDown, ChevronLeft, ChevronRight,
+  Tag, Settings, LogOut, Menu, X, Bell, Search, Pill, ChevronDown, ChevronLeft, ChevronRight, Truck, UserCog, Receipt
 } from 'lucide-react';
-import type { View } from '@/types';
+import type { View, StaffMember } from '@/types';
 
 interface NavItem {
   id: View;
   label: string;
   icon: ReactNode;
   group?: string;
+  roles?: string[]; // Allowed roles. If undefined, all roles allowed.
 }
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
   { id: 'purchases', label: 'Purchases', icon: <ShoppingCart className="w-5 h-5" />, group: 'Procurement' },
-  { id: 'distributors', label: 'Distributors', icon: <Users className="w-5 h-5" />, group: 'Procurement' },
-  { id: 'sales', label: 'Sales', icon: <TrendingUp className="w-5 h-5" />, group: 'Operations' },
+  { id: 'distributors', label: 'Distributors', icon: <Truck className="w-5 h-5" />, group: 'Procurement' },
+  { id: 'sales', label: 'Sales & Billing', icon: <TrendingUp className="w-5 h-5" />, group: 'Operations' },
+  { id: 'customers', label: 'Customers', icon: <Users className="w-5 h-5" />, group: 'Operations' },
   { id: 'inventory', label: 'Inventory', icon: <Package className="w-5 h-5" />, group: 'Operations' },
   { id: 'reports', label: 'Reports', icon: <FileBarChart className="w-5 h-5" />, group: 'Insights' },
   { id: 'offers', label: 'Offers', icon: <Tag className="w-5 h-5" />, group: 'Insights' },
   { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" />, group: 'System' },
+  { id: 'staff', label: 'Staff', icon: <UserCog className="w-5 h-5" />, group: 'Management', roles: ['Owner', 'Admin', 'Manager'] },
+  { id: 'expenses', label: 'Expenses', icon: <Receipt className="w-5 h-5" />, group: 'Management', roles: ['Owner', 'Admin', 'Manager'] },
 ];
 
 const viewLabels: Record<string, string> = {
@@ -36,12 +40,13 @@ const viewLabels: Record<string, string> = {
 
 interface AppShellProps {
   current: View;
+  currentUserRole?: string;
   onNavigate: (v: View) => void;
   onLogout: () => void;
   children: ReactNode;
 }
 
-export function AppShell({ current, onNavigate, onLogout, children }: AppShellProps) {
+export function AppShell({ current, currentUserRole = 'Admin', onNavigate, onLogout, children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -53,16 +58,13 @@ export function AppShell({ current, onNavigate, onLogout, children }: AppShellPr
   }, [sidebarCollapsed]);
 
   const baseView = current.split('-')[0] as View;
-  const grouped = navItems.reduce<Record<string, NavItem[]>>((acc, item) => {
-    const g = item.group ?? 'Main';
-    (acc[g] ??= []).push(item);
-    return acc;
-  }, {});
+  const filteredNavItems = navItems.filter(item => !item.roles || item.roles.includes(currentUserRole));
+  const groups = Array.from(new Set(filteredNavItems.map((item) => item.group || '')));
 
   return (
     <div className="min-h-screen bg-neutral-100 flex">
       {/* Sidebar - Desktop */}
-      <aside className={`fixed lg:sticky top-0 left-0 z-40 h-screen bg-white border-r border-neutral-200 flex flex-col transition-[width,transform] duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} ${sidebarCollapsed ? 'w-[72px]' : 'w-64'}`}>
+      <aside className={`fixed lg:sticky top-0 left-0 z-40 h-screen bg-white border-r border-neutral-200 flex flex-col transition-[width,transform] duration-200 overflow-visible ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} ${sidebarCollapsed ? 'w-[72px]' : 'w-64'}`}>
         
         {/* Toggle Button */}
         <button 
@@ -87,8 +89,8 @@ export function AppShell({ current, onNavigate, onLogout, children }: AppShellPr
           )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
-          {Object.entries(grouped).map(([group, items]) => (
+        <nav className="flex-1 overflow-visible py-4 px-3 space-y-4">
+          {groups.map((group) => (
             <div key={group}>
               {group !== 'Main' && (
                 sidebarCollapsed ? (
@@ -98,7 +100,7 @@ export function AppShell({ current, onNavigate, onLogout, children }: AppShellPr
                 )
               )}
               <div className="space-y-1">
-                {items.map((item) => {
+                {filteredNavItems.filter(item => (item.group || 'Main') === group).map((item) => {
                   const active = current === item.id || baseView === item.id ||
                     (item.id === 'purchases' && current.startsWith('purchase')) ||
                     (item.id === 'sales' && current.startsWith('sales'));
@@ -106,7 +108,7 @@ export function AppShell({ current, onNavigate, onLogout, children }: AppShellPr
                     <div key={item.id} className="relative group">
                       <button
                         onClick={() => { onNavigate(item.id); setMobileOpen(false); }}
-                        className={`w-full flex items-center py-2.5 rounded-lg text-sm font-medium transition-all ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} ${
+                        className={`w-full flex items-center py-2 rounded-lg text-sm font-medium transition-all ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} ${
                           active
                             ? 'bg-primary-50 text-primary-700'
                             : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-800'
@@ -133,7 +135,7 @@ export function AppShell({ current, onNavigate, onLogout, children }: AppShellPr
           ))}
         </nav>
 
-        <div className="p-3 border-t border-neutral-200 shrink-0">
+        <div className="mt-auto p-3 border-t border-neutral-200 shrink-0">
           {sidebarCollapsed ? (
              <div className="flex flex-col items-center justify-center py-2 relative group cursor-pointer">
                 <div className="relative w-10 h-10 flex items-center justify-center rounded-full bg-accent-50">

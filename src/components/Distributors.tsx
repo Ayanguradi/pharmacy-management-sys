@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Plus, Phone, MapPin, FileText, DollarSign, TrendingUp,
   Package, ArrowLeft, Building2, AlertTriangle, BarChart3,
+  Search, MessageCircle, CheckCircle2
 } from 'lucide-react';
-import { Card, Badge, Button, Tabs, Table, SearchBar, PageHeader, Modal, Input, StatCard, EmptyState } from '@/components/ui';
+import { Card, Badge, Button, Tabs, Table, SearchBar, PageHeader, Modal, Input, StatCard, EmptyState, Select } from '@/components/ui';
 import { LineChart, HBarChart, DonutChart } from '@/components/charts';
 import { distributors, purchaseBills, inventoryItems, formatCurrency } from '@/data';
 import type { View, Distributor } from '@/types';
+import { DistributorDetail } from '@/components/DistributorDetail';
 
 interface DistributorsProps {
   view: View;
@@ -18,266 +20,195 @@ interface DistributorsProps {
 
 export function Distributors({ view, onNavigate, selectedDistributor, onSelectDistributor, onNavigateWithState }: DistributorsProps) {
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [sortBy, setSortBy] = useState('balanceDesc');
+  const [page, setPage] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
-  const [detailTab, setDetailTab] = useState('bills');
+  const [detailTab, setDetailTab] = useState('analytics');
+
+
+
+  const processedDistributors = useMemo(() => {
+    return distributors.map(d => {
+      const distBills = purchaseBills.filter(b => b.distributor === d.name);
+      const lastPurchase = distBills.sort((a, b) => new Date(b.billDate).getTime() - new Date(a.billDate).getTime())[0]?.billDate || 'No purchases';
+      
+      const hash = d.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const fulfillment = 75 + (hash % 25);
+      
+      let status = 'Settled';
+      if (d.balance < 0) status = 'Credit';
+      else if (d.balance > 50000) status = 'High Dues';
+      else if (d.balance > 0) status = 'Dues';
+
+      return { ...d, lastPurchase, fulfillment, status };
+    });
+  }, []);
+
+  const filteredAndSorted = useMemo(() => {
+    let result = processedDistributors.filter(d => 
+      d.name.toLowerCase().includes(search.toLowerCase()) ||
+      d.city.toLowerCase().includes(search.toLowerCase()) ||
+      d.gstin.toLowerCase().includes(search.toLowerCase())
+    );
+
+    if (statusFilter !== 'All') {
+      result = result.filter(d => d.status === statusFilter);
+    }
+
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'balanceDesc': return b.balance - a.balance;
+        case 'balanceAsc': return a.balance - b.balance;
+        case 'totalBills': return b.totalBills - a.totalBills;
+        case 'lastPurchase': 
+          if (a.lastPurchase === 'No purchases') return 1;
+          if (b.lastPurchase === 'No purchases') return -1;
+          return new Date(b.lastPurchase).getTime() - new Date(a.lastPurchase).getTime();
+        case 'nameAsc': return a.name.localeCompare(b.name);
+        default: return 0;
+      }
+    });
+
+    return result;
+  }, [processedDistributors, search, statusFilter, sortBy]);
+
+  const visibleDistributors = filteredAndSorted.slice(0, page * 12);
 
   if (view === 'distributor-detail' && selectedDistributor) {
     const dist = distributors.find((d) => d.id === selectedDistributor);
     if (dist) return <DistributorDetail distributor={dist} onBack={() => { onSelectDistributor(null); onNavigate('distributors'); }} detailTab={detailTab} setDetailTab={setDetailTab} onNavigateWithState={onNavigateWithState} />;
   }
 
-  const filtered = distributors.filter((d) =>
-    d.name.toLowerCase().includes(search.toLowerCase()) ||
-    d.city.toLowerCase().includes(search.toLowerCase()) ||
-    d.gstin.toLowerCase().includes(search.toLowerCase())
-  );
-
   return (
-    <div>
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <PageHeader
         title="Distributors"
-        subtitle="Manage your supplier relationships, dues, and orders"
+        subtitle="Manage your supplier relationships, dues, and orders."
         action={<Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowAdd(true)}>Add Distributor</Button>}
       />
 
-      <Card className="p-4 mb-4">
-        <SearchBar value={search} onChange={setSearch} placeholder="Search by name, city, or GSTIN..." />
-      </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((d) => (
-          <button key={d.id} onClick={() => { onSelectDistributor(d.id); onNavigate('distributor-detail'); }} className="text-left">
-            <Card hover className="p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-primary-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-neutral-800">{d.name}</p>
-                    <p className="text-xs text-neutral-400 flex items-center gap-1"><MapPin className="w-3 h-3" />{d.city}</p>
-                  </div>
-                </div>
-                <Badge color={d.balance > 0 ? 'amber' : d.balance < 0 ? 'green' : 'gray'}>
-                  {d.balance > 0 ? 'Dues' : d.balance < 0 ? 'Credit' : 'Settled'}
-                </Badge>
-              </div>
-
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-neutral-500">GSTIN</span>
-                  <span className="font-medium text-neutral-700">{d.gstin}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-neutral-500">Mobile</span>
-                  <span className="font-medium text-neutral-700">{d.mobile}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-neutral-500">Total Bills</span>
-                  <span className="font-medium text-neutral-700">{d.totalBills}</span>
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
-                  <span className="text-neutral-500">Balance</span>
-                  <span className={`font-bold ${d.balance > 0 ? 'text-danger-600' : d.balance < 0 ? 'text-accent-600' : 'text-neutral-600'}`}>
-                    {formatCurrency(Math.abs(d.balance))}
-                  </span>
-                </div>
-              </div>
-            </Card>
-          </button>
-        ))}
+      <div className="flex flex-col lg:flex-row gap-4 mb-6 bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
+        <div className="flex-1 relative">
+          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <input 
+            type="text" 
+            placeholder="Search by name, city, or GSTIN..." 
+            className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-shadow"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col sm:flex-row gap-4 shrink-0">
+          <select 
+            className="border border-neutral-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary-500 min-w-[150px] text-sm text-neutral-700 bg-white"
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          >
+            <option value="All">All Statuses</option>
+            <option value="Settled">Settled</option>
+            <option value="Dues">Dues</option>
+            <option value="High Dues">High Dues</option>
+            <option value="Credit">Credit</option>
+          </select>
+          <select 
+            className="border border-neutral-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary-500 min-w-[180px] text-sm text-neutral-700 bg-white"
+            value={sortBy}
+            onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+          >
+            <option value="balanceDesc">Balance (High to Low)</option>
+            <option value="balanceAsc">Balance (Low to High)</option>
+            <option value="totalBills">Total Bills</option>
+            <option value="lastPurchase">Last Purchase</option>
+            <option value="nameAsc">Name (A-Z)</option>
+          </select>
+        </div>
       </div>
+
+      {filteredAndSorted.length === 0 ? (
+        <EmptyState icon={<Building2 className="w-8 h-8"/>} title="No distributors match your search" subtitle="Try adjusting your filters or search terms." />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {visibleDistributors.map((d) => (
+              <Card key={d.id} className="p-0 overflow-hidden flex flex-col hover:border-primary-300 transition-colors shadow-sm">
+                <div className="p-5 flex-1">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
+                        <Building2 className="w-5 h-5 text-primary-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-neutral-800 text-base leading-tight mb-1 line-clamp-2" title={d.name}>{d.name}</h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded">GST: {d.gstin}</span>
+                          <span className="text-[10px] font-semibold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded flex items-center gap-1" title="Fulfillment Score">
+                            <CheckCircle2 className="w-3 h-3" /> {d.fulfillment}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="shrink-0 ml-2">
+                      <Badge color={d.status === 'High Dues' ? 'red' : d.status === 'Dues' ? 'amber' : d.status === 'Credit' ? 'green' : 'gray'}>
+                        {d.status}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    <div className={`p-2 rounded-lg ${d.status === 'High Dues' || d.status === 'Dues' ? 'bg-red-50' : d.status === 'Credit' ? 'bg-green-50' : 'bg-neutral-50'}`}>
+                      <p className="text-[10px] text-neutral-500 uppercase font-medium mb-1 truncate" title="Balance">Balance</p>
+                      <p className={`font-semibold text-sm ${d.status === 'High Dues' || d.status === 'Dues' ? 'text-red-700' : d.status === 'Credit' ? 'text-green-700' : 'text-neutral-700'}`}>
+                        {formatCurrency(Math.abs(d.balance))}
+                      </p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-neutral-50">
+                      <p className="text-[10px] text-neutral-500 uppercase font-medium mb-1 truncate" title="Total Bills">Total Bills</p>
+                      <p className="font-semibold text-sm text-neutral-700">{d.totalBills}</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-neutral-50">
+                      <p className="text-[10px] text-neutral-500 uppercase font-medium mb-1 truncate" title="Last Purchase">Last Purchase</p>
+                      <p className="font-semibold text-sm text-neutral-700 truncate" title={d.lastPurchase}>
+                        {d.lastPurchase === 'No purchases' ? '-' : new Date(d.lastPurchase).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-neutral-50 px-5 py-3 border-t border-neutral-100 flex items-center justify-between mt-auto">
+                  <div className="flex items-center gap-4 text-xs text-neutral-500">
+                    <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> <span className="truncate max-w-[80px]" title={d.city}>{d.city}</span></span>
+                    <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> {d.mobile}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button className="w-8 h-8 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-primary-600 hover:border-primary-300 transition-colors" title="Call">
+                      <Phone className="w-4 h-4" />
+                    </button>
+                    <button className="w-8 h-8 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-green-500 hover:text-green-600 hover:border-green-300 transition-colors" title="WhatsApp">
+                      <MessageCircle className="w-4 h-4" />
+                    </button>
+                    <Button size="sm" variant="outline" onClick={() => { onSelectDistributor(d.id); onNavigate('distributor-detail'); }}>
+                      View
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+          
+          {filteredAndSorted.length > visibleDistributors.length && (
+            <div className="mt-8 flex justify-center">
+              <Button variant="outline" onClick={() => setPage(p => p + 1)}>Load More</Button>
+            </div>
+          )}
+        </>
+      )}
 
       {showAdd && <AddDistributorModal onClose={() => setShowAdd(false)} />}
     </div>
   );
 }
 
-function DistributorDetail({ distributor, onBack, detailTab, setDetailTab, onNavigateWithState }: {
-  distributor: Distributor;
-  onBack: () => void;
-  detailTab: string;
-  setDetailTab: (t: string) => void;
-  onNavigateWithState?: (view: View, state?: any) => void;
-}) {
-  const distBills = purchaseBills.filter((b) => b.distributor === distributor.name);
-
-  return (
-    <div>
-      <button onClick={onBack} className="flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-700 mb-4">
-        <ArrowLeft className="w-4 h-4" /> Back to Distributors
-      </button>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <Card className="lg:col-span-2 p-5">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white">
-              <Building2 className="w-7 h-7" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-neutral-800">{distributor.name}</h2>
-              <div className="flex flex-wrap gap-3 mt-2 text-sm text-neutral-500">
-                <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />{distributor.city}</span>
-                <span className="flex items-center gap-1"><Phone className="w-4 h-4" />{distributor.mobile}</span>
-                <span className="flex items-center gap-1"><FileText className="w-4 h-4" />{distributor.gstin}</span>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" icon={<Phone className="w-4 h-4" />}>Call</Button>
-          </div>
-        </Card>
-
-        <Card className="p-5">
-          <p className="text-sm text-neutral-500">Running Balance</p>
-          <p className={`text-3xl font-bold mt-1 ${distributor.balance > 0 ? 'text-danger-600' : 'text-accent-600'}`}>
-            {formatCurrency(Math.abs(distributor.balance))}
-          </p>
-          <p className="text-xs text-neutral-400 mt-1">{distributor.balance > 0 ? 'You owe' : 'They owe you'}</p>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Bills" value={String(distributor.totalBills)} icon={<FileText className="w-5 h-5" />} color="blue" />
-        <StatCard label="Total Purchases" value={formatCurrency(distributor.totalPurchases)} icon={<TrendingUp className="w-5 h-5" />} color="green" />
-        <StatCard label="Pending Dues" value={formatCurrency(Math.max(0, distributor.balance))} icon={<DollarSign className="w-5 h-5" />} color="amber" />
-        <StatCard label="Active Items" value={String(inventoryItems.length)} icon={<Package className="w-5 h-5" />} color="blue" />
-      </div>
-
-      <Card className="mb-4">
-        <Tabs
-          tabs={[
-            { id: 'bills', label: 'Bills', icon: <FileText className="w-4 h-4" /> },
-            { id: 'dues', label: 'Dues', icon: <DollarSign className="w-4 h-4" /> },
-            { id: 'returns', label: 'Purchase Returns', icon: <Package className="w-4 h-4" /> },
-            { id: 'orders', label: 'Purchase Orders', icon: <TrendingUp className="w-4 h-4" /> },
-            { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="w-4 h-4" /> },
-          ]}
-          active={detailTab}
-          onChange={setDetailTab}
-        />
-      </Card>
-
-      {detailTab === 'bills' && (
-        <Card>
-          <Table headers={['Bill No.', 'Bill Date', 'Amount', 'Payment', 'Status']}>
-            {distBills.map((b) => (
-              <tr key={b.id} className="hover:bg-neutral-50">
-                <td className="px-4 py-3 font-medium text-neutral-700">{b.billNo}</td>
-                <td className="px-4 py-3 text-neutral-600">{b.billDate}</td>
-                <td className="px-4 py-3 font-semibold text-neutral-800">{formatCurrency(b.amount)}</td>
-                <td className="px-4 py-3"><Badge color="blue">{b.paymentType}</Badge></td>
-                <td className="px-4 py-3"><Badge color={b.paid ? 'green' : 'amber'}>{b.paid ? 'Paid' : 'Unpaid'}</Badge></td>
-              </tr>
-            ))}
-          </Table>
-        </Card>
-      )}
-
-      {detailTab === 'dues' && (
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-sm text-neutral-500">Total Outstanding</p>
-              <p className="text-2xl font-bold text-danger-600">{formatCurrency(Math.max(0, distributor.balance))}</p>
-            </div>
-            <Button variant="success" icon={<DollarSign className="w-4 h-4" />}>Record Payment</Button>
-          </div>
-          <Table headers={['Bill No.', 'Date', 'Amount', 'Status']}>
-            {distBills.filter((b) => !b.paid).map((b) => (
-              <tr key={b.id} className="hover:bg-neutral-50">
-                <td className="px-4 py-3 font-medium text-neutral-700">{b.billNo}</td>
-                <td className="px-4 py-3 text-neutral-600">{b.billDate}</td>
-                <td className="px-4 py-3 font-semibold text-neutral-800">{formatCurrency(b.amount)}</td>
-                <td className="px-4 py-3"><Badge color="amber">Unpaid</Badge></td>
-              </tr>
-            ))}
-          </Table>
-        </Card>
-      )}
-
-      {detailTab === 'returns' && (
-        <Card>
-          <EmptyState icon={<Package className="w-7 h-7" />} title="No returns recorded" subtitle="Purchase returns for this distributor will appear here." />
-        </Card>
-      )}
-
-      {detailTab === 'orders' && (
-        <Card>
-          <Table headers={['PO No.', 'Date', 'Items', 'Status']}>
-            <tr className="hover:bg-neutral-50">
-              <td className="px-4 py-3 font-medium text-neutral-700">PO-024</td>
-              <td className="px-4 py-3 text-neutral-600">2024-08-03</td>
-              <td className="px-4 py-3 text-neutral-600">12</td>
-              <td className="px-4 py-3"><Badge color="amber">Pending</Badge></td>
-            </tr>
-          </Table>
-        </Card>
-      )}
-
-      {detailTab === 'analytics' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="p-5">
-              <h3 className="font-semibold text-neutral-800 mb-4">Purchase Trend</h3>
-              <LineChart data={[
-                { label: 'Feb', value: 120000 }, { label: 'Mar', value: 145000 },
-                { label: 'Apr', value: 132000 }, { label: 'May', value: 168000 },
-                { label: 'Jun', value: 155000 }, { label: 'Jul', value: 190000 },
-                { label: 'Aug', value: 175000 },
-              ]} height={220} />
-            </Card>
-            <Card className="p-5">
-              <h3 className="font-semibold text-neutral-800 mb-4">Payables vs Receivables</h3>
-              <DonutChart segments={[
-                { label: 'Payables', value: 45200, color: '#f59e0b' },
-                { label: 'Receivables', value: 12500, color: '#12c983' },
-              ]} />
-            </Card>
-          </div>
-
-          <Card className="p-5">
-            <h3 className="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-warning-500" /> Non-Moving / Dead Stock
-            </h3>
-            
-            <div className="space-y-4">
-              {[
-                { label: 'Insulin Glargine', value: 25, max: 100, color: '#ef4444' },
-                { label: 'Aspirin 75mg', value: 8, max: 100, color: '#ef4444' },
-                { label: 'Omeprazole 20mg', value: 12, max: 100, color: '#f59e0b' },
-                { label: 'Amoxicillin 250mg', value: 60, max: 100, color: '#f59e0b' },
-              ].map((item, i) => (
-                <div key={i}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-neutral-700">{item.label}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-neutral-800">{item.value} units</span>
-                      <button onClick={() => {
-                        onNavigateWithState?.('purchase-returns', {
-                          distributor: distributor.name,
-                          itemName: item.label,
-                          returnQty: item.value,
-                          reason: 'Non-moving'
-                        });
-                      }} className="text-xs text-primary-600 hover:underline">Return</button>
-                    </div>
-                  </div>
-                  <div className="h-2.5 bg-neutral-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${(item.value / item.max) * 100}%`, background: item.color }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <p className="text-xs text-neutral-400 mt-4">Items from this distributor with low sales velocity</p>
-          </Card>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function AddDistributorModal({ onClose }: { onClose: () => void }) {
   return (

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Package, Search, Plus, Filter, AlertCircle, FileText, CheckCircle2, XCircle } from 'lucide-react';
-import { Card, Badge, Button, Table, SearchBar, Select, EmptyState, StatCard } from '@/components/ui';
-import { pendingPOs, suggestedPOs, formatCurrency } from '@/data';
+import { Card, Badge, Button, SearchBar, Select, EmptyState, StatCard, Modal, Input } from '@/components/ui';
+import { pendingPOs, suggestedPOs, formatCurrency, distributors } from '@/data';
 import type { PurchaseOrder, View } from '@/types';
 import { DateRangePicker, DateRange } from '@/components/ui/DateRangePicker';
+import { ComparePricesPanel } from './ComparePricesPanel';
+import { TrendingUp, Trash2 } from 'lucide-react';
 
 interface PurchaseOrdersProps {
   onNavigateWithState: (v: View, state?: any) => void;
@@ -24,6 +26,7 @@ export function PurchaseOrders({ onNavigateWithState }: PurchaseOrdersProps) {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'age', direction: 'desc' });
   const [localPOs, setLocalPOs] = useState<PurchaseOrder[]>(pendingPOs as PurchaseOrder[]);
   const [localSuggestions, setLocalSuggestions] = useState(suggestedPOs);
+  const [showNewPO, setShowNewPO] = useState(false);
 
   const today = new Date('2024-08-08');
 
@@ -142,9 +145,12 @@ export function PurchaseOrders({ onNavigateWithState }: PurchaseOrdersProps) {
             <option value="WhatsApp">WhatsApp</option>
           </Select>
           <DateRangePicker value={dateRange} onChange={setDateRange} className="w-64" />
-          <Button icon={<Plus className="w-4 h-4" />}>Create PO</Button>
+          <Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowNewPO(true)}>Create PO</Button>
         </div>
       </Card>
+
+      {/* Standalone Compare Prices Panel */}
+      <ComparePricesPanel />
 
       {/* Main Table */}
       <Card>
@@ -234,9 +240,96 @@ export function PurchaseOrders({ onNavigateWithState }: PurchaseOrdersProps) {
           </div>
         )}
       </Card>
+
+      {showNewPO && <NewPOModal onClose={() => setShowNewPO(false)} />}
     </div>
   );
 }
 
-// Ensure you export TrendingUp from lucide-react above
-import { TrendingUp } from 'lucide-react';
+function NewPOModal({ initialData, onClose }: { initialData?: any; onClose: () => void }) {
+  const [distributor, setDistributor] = useState(initialData?.distributor || '');
+  const [items, setItems] = useState<any[]>(
+    initialData?.items?.length ? initialData.items :
+    [{ id: '1', name: '', qty: 0, price: 0 }]
+  );
+
+  const updateItem = (id: string, field: string, value: any) => {
+    setItems((prev) => prev.map((it) => it.id === id ? { ...it, [field]: value } : it));
+  };
+  const addItem = () => setItems((p) => [...p, { id: String(Date.now()), name: '', qty: 0, price: 0 }]);
+  const removeItem = (id: string) => setItems((p) => p.filter((it) => it.id !== id));
+
+  const totalAmount = items.reduce((s, it) => s + (it.qty * it.price), 0);
+
+  return (
+    <Modal open onClose={onClose} title="New Purchase Order" size="xl">
+      <div className="space-y-4">
+        <Select label="Select Distributor" value={distributor} onChange={(e) => setDistributor(e.target.value)}>
+          <option value="">Select a distributor or add items first...</option>
+          {distributors.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
+        </Select>
+
+        <div className="border border-neutral-200 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-neutral-50">
+              <tr className="border-b border-neutral-200">
+                <th className="px-3 py-2.5 text-left font-semibold text-neutral-500 uppercase text-xs">Item Name</th>
+                <th className="px-3 py-2.5 text-left font-semibold text-neutral-500 uppercase text-xs w-24">Qty</th>
+                <th className="px-3 py-2.5 text-left font-semibold text-neutral-500 uppercase text-xs w-32">Est. Price</th>
+                <th className="px-3 py-2.5 text-right font-semibold text-neutral-500 uppercase text-xs w-32">Amount</th>
+                <th className="px-3 py-2.5 w-10"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {items.map((item) => (
+                <React.Fragment key={item.id}>
+                  <tr className="bg-white">
+                    <td className="px-3 py-2"><Input placeholder="e.g. Paracetamol 500mg" value={item.name} onChange={(e) => updateItem(item.id, 'name', e.target.value)} /></td>
+                    <td className="px-3 py-2"><Input type="number" value={item.qty || ''} onChange={(e) => updateItem(item.id, 'qty', +e.target.value)} /></td>
+                    <td className="px-3 py-2"><Input type="number" value={item.price || ''} onChange={(e) => updateItem(item.id, 'price', +e.target.value)} /></td>
+                    <td className="px-3 py-2 text-right font-semibold">{formatCurrency(item.qty * item.price)}</td>
+                    <td className="px-3 py-2 text-right"><button onClick={() => removeItem(item.id)} className="text-neutral-400 hover:text-danger-600"><Trash2 className="w-4 h-4" /></button></td>
+                  </tr>
+                  {/* Inline comparison if item is typed and has 2+ sources */}
+                  {item.name.length >= 2 && (
+                    <tr className="bg-neutral-50/50">
+                      <td colSpan={5} className="p-0 border-t-0">
+                        <ComparePricesPanel 
+                          compact 
+                          preselectedItem={item.name} 
+                          onSelectDistributor={(name, dist, price) => {
+                             updateItem(item.id, 'name', name);
+                             updateItem(item.id, 'price', price);
+                             if (!distributor) setDistributor(dist);
+                          }} 
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+          <button onClick={addItem} className="w-full py-2.5 text-sm text-primary-600 font-medium hover:bg-primary-50 flex items-center justify-center gap-1.5 border-t border-neutral-200">
+            <Plus className="w-4 h-4" /> Add Item
+          </button>
+        </div>
+        
+        <div className="flex items-center justify-between mt-4 border-t border-neutral-100 pt-4">
+          <div className="text-right ml-auto">
+            <p className="text-sm text-neutral-500">Est. Total</p>
+            <p className="text-2xl font-bold text-neutral-800">{formatCurrency(totalAmount)}</p>
+          </div>
+        </div>
+
+        <div className="flex justify-between border-t border-neutral-100 pt-4">
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>Save Draft</Button>
+            <Button variant="primary" onClick={onClose}>Place Order</Button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}

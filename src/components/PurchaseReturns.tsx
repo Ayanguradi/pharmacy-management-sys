@@ -17,7 +17,7 @@ export function PurchaseReturns({ initialReturn }: PurchaseReturnsProps) {
   const [sortDateDesc, setSortDateDesc] = useState(true);
   const [showNewModal, setShowNewModal] = useState(!!initialReturn);
   const [returns, setReturns] = useState(purchaseReturns);
-  
+
   const [showExpiryList, setShowExpiryList] = useState(false);
   const [expiryList, setExpiryList] = useState<(InventoryItem & { distributorId: string; distributorName: string; daysToExpiry: number })[]>([]);
 
@@ -25,18 +25,18 @@ export function PurchaseReturns({ initialReturn }: PurchaseReturnsProps) {
   useEffect(() => {
     const today = new Date('2024-08-07');
     const expiring: any[] = [];
-    
+
     // Simplistic check, assume all inventory items are linked to a distributor somehow. 
     inventoryItems.forEach(item => {
       if (!item.expiry) return;
       const expDate = new Date(item.expiry + '-01'); // YYYY-MM
       const diffTime = Math.abs(expDate.getTime() - today.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       // Mock distributor assignment for demo
       const dist = distributors[parseInt(item.id.replace(/\D/g, '')) % distributors.length];
       const minDays = dist?.returnPolicy?.minShelfLifeDays || 90;
-      
+
       if (diffDays <= minDays) {
         expiring.push({
           ...item,
@@ -50,13 +50,13 @@ export function PurchaseReturns({ initialReturn }: PurchaseReturnsProps) {
   }, []);
 
   const filtered = returns.filter((r) => {
-    const matchSearch = r.id.toLowerCase().includes(search.toLowerCase()) || 
-                        r.distributor.toLowerCase().includes(search.toLowerCase()) ||
-                        r.itemName.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = r.id.toLowerCase().includes(search.toLowerCase()) ||
+      r.distributor.toLowerCase().includes(search.toLowerCase()) ||
+      r.itemName.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'all' || r.status === statusFilter;
     return matchSearch && matchStatus;
   }).sort((a, b) => {
-    return sortDateDesc 
+    return sortDateDesc
       ? new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime()
       : new Date(a.createdDate).getTime() - new Date(b.createdDate).getTime();
   });
@@ -107,25 +107,25 @@ export function PurchaseReturns({ initialReturn }: PurchaseReturnsProps) {
             </div>
           </div>
         </Card>
-        
+
         <Card>
           <Table headers={['Item', 'Batch', 'Expiry', 'Days Left', 'Distributor', 'Stock', 'Action']}>
-             {expiryList.map(item => (
-               <tr key={item.id} className="hover:bg-neutral-50">
-                 <td className="px-4 py-3 font-medium text-neutral-700">{item.name}</td>
-                 <td className="px-4 py-3 text-neutral-600">{item.batch}</td>
-                 <td className="px-4 py-3 text-neutral-600">{item.expiry}</td>
-                 <td className="px-4 py-3 font-semibold text-danger-600">{item.daysToExpiry} days</td>
-                 <td className="px-4 py-3 text-neutral-600">{item.distributorName}</td>
-                 <td className="px-4 py-3 font-semibold text-neutral-700">{item.stock}</td>
-                 <td className="px-4 py-3">
-                   <Button size="sm" variant="outline" onClick={() => {
-                     // Open modal with prefilled
-                     setShowNewModal(true);
-                   }}>Return</Button>
-                 </td>
-               </tr>
-             ))}
+            {expiryList.map(item => (
+              <tr key={item.id} className="hover:bg-neutral-50">
+                <td className="px-4 py-3 font-medium text-neutral-700">{item.name}</td>
+                <td className="px-4 py-3 text-neutral-600">{item.batch}</td>
+                <td className="px-4 py-3 text-neutral-600">{item.expiry}</td>
+                <td className="px-4 py-3 font-semibold text-danger-600">{item.daysToExpiry} days</td>
+                <td className="px-4 py-3 text-neutral-600">{item.distributorName}</td>
+                <td className="px-4 py-3 font-semibold text-neutral-700">{item.stock}</td>
+                <td className="px-4 py-3">
+                  <Button size="sm" variant="outline" onClick={() => {
+                    // Open modal with prefilled
+                    setShowNewModal(true);
+                  }}>Return</Button>
+                </td>
+              </tr>
+            ))}
           </Table>
           {expiryList.length === 0 && (
             <div className="p-8 text-center text-neutral-500">No expiring items found.</div>
@@ -192,18 +192,18 @@ export function PurchaseReturns({ initialReturn }: PurchaseReturnsProps) {
       </Card>
 
       {showNewModal && (
-        <NewReturnModal 
-          initialData={initialReturn} 
-          onClose={() => setShowNewModal(false)} 
-          onSave={handleSaveReturn} 
+        <NewReturnModal
+          initialData={initialReturn}
+          onClose={() => setShowNewModal(false)}
+          onSave={handleSaveReturn}
         />
       )}
     </div>
   );
 }
 
-function ReturnRow({ returnData, getStatusBadgeColor, onSettle, onDelete }: { 
-  returnData: PurchaseReturn, 
+function ReturnRow({ returnData, getStatusBadgeColor, onSettle, onDelete }: {
+  returnData: PurchaseReturn,
   getStatusBadgeColor: (s: ReturnStatus) => any,
   onSettle: (id: string, amount: number) => void,
   onDelete: (id: string) => void
@@ -211,10 +211,10 @@ function ReturnRow({ returnData, getStatusBadgeColor, onSettle, onDelete }: {
   const [showSettle, setShowSettle] = useState(false);
   const [showChallan, setShowChallan] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
-  
-  const variance = returnData.status === 'Settled' && returnData.actualCreditAmount !== undefined 
-      ? returnData.actualCreditAmount - returnData.expectedCreditAmount 
-      : 0;
+
+  const variance = returnData.status === 'Settled' && returnData.actualCreditAmount !== undefined
+    ? returnData.actualCreditAmount - returnData.expectedCreditAmount
+    : 0;
 
   return (
     <>
@@ -251,10 +251,10 @@ function ReturnRow({ returnData, getStatusBadgeColor, onSettle, onDelete }: {
       </tr>
 
       {showSettle && (
-        <SettleModal 
-          returnData={returnData} 
-          onClose={() => setShowSettle(false)} 
-          onSave={(amt) => { onSettle(returnData.id, amt); setShowSettle(false); }} 
+        <SettleModal
+          returnData={returnData}
+          onClose={() => setShowSettle(false)}
+          onSave={(amt) => { onSettle(returnData.id, amt); setShowSettle(false); }}
         />
       )}
 
@@ -293,7 +293,7 @@ function ReturnRow({ returnData, getStatusBadgeColor, onSettle, onDelete }: {
 
 function SettleModal({ returnData, onClose, onSave }: { returnData: PurchaseReturn, onClose: () => void, onSave: (amount: number) => void }) {
   const [actualAmount, setActualAmount] = useState(returnData.expectedCreditAmount);
-  
+
   return (
     <Modal open onClose={onClose} title="Settle Credit Note" size="sm">
       <div className="space-y-4">
@@ -301,21 +301,21 @@ function SettleModal({ returnData, onClose, onSave }: { returnData: PurchaseRetu
           <p className="text-sm text-neutral-500">Expected Credit Amount</p>
           <p className="text-xl font-bold text-neutral-800">{formatCurrency(returnData.expectedCreditAmount)}</p>
         </div>
-        
-        <Input 
-          label="Actual Credit Note Amount" 
-          type="number" 
-          value={actualAmount} 
-          onChange={(e) => setActualAmount(Number(e.target.value))} 
+
+        <Input
+          label="Actual Credit Note Amount"
+          type="number"
+          value={actualAmount}
+          onChange={(e) => setActualAmount(Number(e.target.value))}
         />
-        
+
         {actualAmount !== returnData.expectedCreditAmount && (
           <div className="flex gap-2 p-3 bg-warning-50 text-warning-700 rounded-lg text-sm border border-warning-200">
             <AlertCircle className="w-5 h-5 shrink-0" />
             <p>There is a variance of <strong>{formatCurrency(actualAmount - returnData.expectedCreditAmount)}</strong>. This will be flagged for review.</p>
           </div>
         )}
-        
+
         <div className="flex justify-end gap-2 pt-4 border-t border-neutral-100">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={() => onSave(actualAmount)}>Mark as Settled</Button>
@@ -341,21 +341,21 @@ function ChallanModal({ returnData, onClose }: { returnData: PurchaseReturn, onC
             <p className="text-sm text-neutral-500">GSTIN: 27APOLLO0000Z1</p>
           </div>
         </div>
-        
+
         <div className="mb-8 flex justify-between">
-           <div>
-             <p className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-2">To Distributor:</p>
-             <p className="font-bold text-neutral-800 text-lg">{returnData.distributor}</p>
-             <p className="text-sm text-neutral-600">Please issue credit note against these returned goods.</p>
-           </div>
-           {returnData.originalBillId && (
-             <div className="text-right">
-               <p className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-2">Ref Invoice:</p>
-               <p className="font-semibold text-neutral-800">{returnData.originalBillId}</p>
-             </div>
-           )}
+          <div>
+            <p className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-2">To Distributor:</p>
+            <p className="font-bold text-neutral-800 text-lg">{returnData.distributor}</p>
+            <p className="text-sm text-neutral-600">Please issue credit note against these returned goods.</p>
+          </div>
+          {returnData.originalBillId && (
+            <div className="text-right">
+              <p className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-2">Ref Invoice:</p>
+              <p className="font-semibold text-neutral-800">{returnData.originalBillId}</p>
+            </div>
+          )}
         </div>
-        
+
         <table className="w-full text-left border-collapse mb-8">
           <thead>
             <tr className="border-b-2 border-neutral-800">
@@ -378,7 +378,7 @@ function ChallanModal({ returnData, onClose }: { returnData: PurchaseReturn, onC
             </tr>
           </tbody>
         </table>
-        
+
         <div className="flex justify-between items-end mt-16 pt-8 border-t border-neutral-200">
           <div className="text-center">
             <div className="w-48 border-b border-neutral-400 mb-2"></div>
@@ -390,7 +390,7 @@ function ChallanModal({ returnData, onClose }: { returnData: PurchaseReturn, onC
           </div>
         </div>
       </div>
-      
+
       <div className="flex justify-end gap-2 pt-4 border-t border-neutral-100">
         <Button variant="ghost" onClick={onClose}>Close</Button>
         <Button icon={<Printer className="w-4 h-4" />} onClick={() => window.print()}>Print Challan</Button>
@@ -459,10 +459,10 @@ function NewReturnModal({ initialData, onClose, onSave }: { initialData?: Partia
           </div>
         )}
 
-        <Select 
-          label="Distributor" 
-          value={formData.distributor} 
-          onChange={e => setFormData({...formData, distributor: e.target.value})}
+        <Select
+          label="Distributor"
+          value={formData.distributor}
+          onChange={e => setFormData({ ...formData, distributor: e.target.value })}
         >
           <option value="">Select Distributor...</option>
           {distributors.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
@@ -480,23 +480,23 @@ function NewReturnModal({ initialData, onClose, onSave }: { initialData?: Partia
         )}
 
         <div className="grid grid-cols-2 gap-4">
-          <Input 
-            label="Item Name" 
-            value={formData.itemName} 
-            onChange={e => setFormData({...formData, itemName: e.target.value})} 
+          <Input
+            label="Item Name"
+            value={formData.itemName}
+            onChange={e => setFormData({ ...formData, itemName: e.target.value })}
           />
-          <Input 
-            label="Batch Number" 
-            value={formData.batch} 
-            onChange={e => setFormData({...formData, batch: e.target.value})} 
+          <Input
+            label="Batch Number"
+            value={formData.batch}
+            onChange={e => setFormData({ ...formData, batch: e.target.value })}
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Select 
-            label="Reason for Return" 
-            value={formData.reason} 
-            onChange={e => setFormData({...formData, reason: e.target.value as ReturnReason})}
+          <Select
+            label="Reason for Return"
+            value={formData.reason}
+            onChange={e => setFormData({ ...formData, reason: e.target.value as ReturnReason })}
           >
             <option value="Expired">Expired</option>
             <option value="Near-expiry">Near Expiry</option>
@@ -506,33 +506,33 @@ function NewReturnModal({ initialData, onClose, onSave }: { initialData?: Partia
             <option value="Recall">Product Recall</option>
             <option value="Others">Others</option>
           </Select>
-          <Input 
-            label="Original Bill No. (Optional)" 
-            value={formData.originalBillId} 
-            onChange={e => setFormData({...formData, originalBillId: e.target.value})} 
+          <Input
+            label="Original Bill No. (Optional)"
+            value={formData.originalBillId}
+            onChange={e => setFormData({ ...formData, originalBillId: e.target.value })}
           />
         </div>
 
         {formData.reason === 'Others' && (
-          <Input 
-            label="Please specify reason" 
-            value={formData.customReason} 
-            onChange={e => setFormData({...formData, customReason: e.target.value})} 
+          <Input
+            label="Please specify reason"
+            value={formData.customReason}
+            onChange={e => setFormData({ ...formData, customReason: e.target.value })}
           />
         )}
 
         <div className="grid grid-cols-2 gap-4">
-          <Input 
-            label="Return Quantity" 
-            type="number" 
-            value={formData.returnQty} 
-            onChange={e => setFormData({...formData, returnQty: Number(e.target.value)})} 
+          <Input
+            label="Return Quantity"
+            type="number"
+            value={formData.returnQty}
+            onChange={e => setFormData({ ...formData, returnQty: Number(e.target.value) })}
           />
-          <Input 
-            label="Unit Price (₹)" 
-            type="number" 
-            value={formData.returnPrice} 
-            onChange={e => setFormData({...formData, returnPrice: Number(e.target.value)})} 
+          <Input
+            label="pack Price (₹)"
+            type="number"
+            value={formData.returnPrice}
+            onChange={e => setFormData({ ...formData, returnPrice: Number(e.target.value) })}
           />
         </div>
 

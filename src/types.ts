@@ -1,12 +1,30 @@
 export type View =
+  | 'landing'
   | 'dashboard'
   | 'purchases' | 'purchase-drafts' | 'purchase-orders' | 'purchase-analytics' | 'purchase-returns'
   | 'sales' | 'sales-drafts' | 'sales-analytics' | 'sales-returns'
+  | 'customers' | 'customer-detail'
   | 'distributors' | 'distributor-detail'
   | 'inventory'
   | 'reports'
   | 'offers'
-  | 'settings';
+  | 'settings'
+  | 'staff' | 'staff-detail'
+  | 'expenses';
+
+export interface Customer {
+  id: string;
+  name: string;
+  mobile: string;
+  altMobile?: string;
+  address?: string;
+  city: string;
+  doctors?: string[];
+  familyGroupId?: string;
+  familyRelationship?: string;
+  whatsappConsent: boolean;
+  preferredLanguage?: string;
+}
 
 export interface PurchaseItem {
   id: string;
@@ -41,10 +59,9 @@ export interface PurchaseBill {
   entryBy: string;
   distributor: string;
   amount: number;
-  paid: boolean;
-  paymentType: 'UPI' | 'Credit' | 'Cash';
-  status: 'Finalized' | 'Draft' | 'Returned' | 'Cancelled';
-  utr?: string;
+  payments: { id: string, amount: number, date: string, mode: string, ref?: string, recorded_by: string }[];
+  status: 'Finalized' | 'Draft' | 'Returned' | 'Cancelled' | 'Voided';
+  logs: { timestamp: string, user: string, action: string, details?: string }[];
   items: PurchaseItem[];
 }
 
@@ -72,6 +89,7 @@ export interface SalesItem {
   qty: number;
   discount: number;
   amount: number;
+  dosage?: string;
 }
 
 export interface SalesBill {
@@ -86,7 +104,29 @@ export interface SalesBill {
   due: number;
   status: 'Finalized' | 'Draft' | 'Returned';
   doctor?: string;
+  paymentMode?: string;
+  deliveryMode?: 'Self-pickup' | 'Self-delivery' | 'Third-party delivery';
+  deliveryPartner?: string;
+  payments: { id: string, amount: number, date: string, mode: string, recorded_by: string }[];
+  logs: { timestamp: string, user: string, action: string, details?: string }[];
   items: SalesItem[];
+}
+
+export type SalesReturnReason = 'Wrong Item' | 'Customer Dissatisfaction' | 'Adverse Reaction' | 'Doctor Changed Prescription' | 'Billing Error' | 'Damaged';
+export type SalesRefundMethod = 'Cash Refund' | 'Store Credit' | 'Exchange';
+
+export interface SalesReturn {
+  id: string;
+  patient: string;
+  originalBillId?: string;
+  itemName: string;
+  batch: string;
+  returnQty: number;
+  reason: SalesReturnReason;
+  refundMethod: SalesRefundMethod;
+  refundAmount: number;
+  status: ReturnStatus;
+  createdDate: string;
 }
 
 export interface InventoryItem {
@@ -106,15 +146,27 @@ export interface InventoryItem {
   minStock: number;
   maxStock: number;
   expiry: string;
+  composition?: string;
+  manufacturer?: string;
+  form?: 'Tablet' | 'Syrup' | 'Capsule' | 'Injection' | 'Ointment' | 'Drops' | 'Cream' | 'Powder' | 'Other';
+  purchase_unit?: string;
+  pack_size?: number;
+  sale_unit?: string;
 }
 
 export interface Offer {
   id: string;
   startDate: string;
   endDate: string;
-  product: string;
+  productId: string;
+  productName: string;
   originalPrice: number;
   offerPrice: number;
+  status: 'Active' | 'Upcoming' | 'Expired' | 'Draft';
+  applicableCustomers: 'All Customers' | 'New Customers Only' | 'Regular Customers Only';
+  redemptions: number;
+  revenue: number;
+  category: string;
 }
 
 export interface SalesRecord {
@@ -143,4 +195,72 @@ export interface PurchaseReturn {
   actualCreditAmount?: number;
   createdDate: string;
   linkedReconciliationIssueId?: string;
+}
+
+export type EmploymentStatus = 'Active' | 'On Leave' | 'Inactive' | 'Terminated';
+export type LeaveType = 'Casual' | 'Sick' | 'Earned';
+export type AttendanceStatus = 'Present' | 'Absent' | 'Half-Day' | 'Leave' | 'Holiday';
+
+export interface AttendanceRecord {
+  date: string; // YYYY-MM-DD
+  status: AttendanceStatus;
+}
+
+export interface LeaveBalance {
+  type: LeaveType;
+  allotted: number;
+  used: number;
+}
+
+export interface SalaryStructure {
+  basicPay: number;
+  allowances: { name: string; amount: number }[];
+  deductions: { name: string; amount: number }[];
+}
+
+export interface PayrollRun {
+  id: string;
+  period: string; // e.g. "August 2026"
+  computedPay: number;
+  status: 'Pending' | 'Paid';
+  paidDate?: string;
+  paymentMode?: string;
+}
+
+export interface StaffMember {
+  id: string;
+  name: string;
+  role: 'Owner' | 'Manager' | 'Pharmacist' | 'Cashier' | 'Assistant' | 'Admin';
+  mobile: string;
+  pin?: string;
+  active: boolean; // For login access
+  
+  // HR fields
+  email?: string;
+  address?: string;
+  joiningDate?: string;
+  photo?: string;
+  emergencyContact?: { name: string; number: string };
+  bankDetails?: { accountNumber: string; ifsc: string; holderName: string };
+  employmentStatus?: EmploymentStatus;
+  
+  attendance?: AttendanceRecord[];
+  leaveBalances?: LeaveBalance[];
+  salaryStructure?: SalaryStructure;
+  payrollHistory?: PayrollRun[];
+}
+
+export type ExpenseCategory = 'Rent' | 'Electricity' | 'Maintenance' | 'Salaries' | 'Marketing' | 'Licenses & Compliance' | 'Misc';
+
+export interface Expense {
+  id: string;
+  category: ExpenseCategory;
+  amount: number;
+  date: string;
+  payee: string;
+  paymentMode: string;
+  receipt?: string; // URL or boolean flag for UI
+  isRecurring: boolean;
+  recurringFrequency?: 'Monthly' | 'Quarterly' | 'Yearly';
+  status: 'Draft' | 'Finalized';
 }

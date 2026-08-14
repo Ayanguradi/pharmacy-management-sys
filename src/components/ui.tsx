@@ -214,8 +214,8 @@ export function EmptyState({ icon, title, subtitle }: { icon: ReactNode; title: 
   );
 }
 
-export function StatCard({ label, value, icon, trend, color = 'blue' }: {
-  label: string; value: string; icon: ReactNode; trend?: string; color?: 'blue' | 'green' | 'amber' | 'red';
+export function StatCard({ label, value, icon, trend, color = 'blue', className = '' }: {
+  label: string; value: string; icon: ReactNode; trend?: string; color?: 'blue' | 'green' | 'amber' | 'red'; className?: string;
 }) {
   const colorMap = {
     blue: 'bg-primary-50 text-primary-600',
@@ -224,7 +224,7 @@ export function StatCard({ label, value, icon, trend, color = 'blue' }: {
     red: 'bg-danger-50 text-danger-600',
   };
   return (
-    <Card hover className="p-5">
+    <Card hover className={`p-5 ${className}`}>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-neutral-500 font-medium">{label}</p>

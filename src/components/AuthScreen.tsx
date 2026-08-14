@@ -1,15 +1,19 @@
 import { useState } from 'react';
-import { Pill, Phone, Lock, ArrowRight, CheckCircle2, TrendingUp, Users, ShieldCheck } from 'lucide-react';
+import { Pill, Phone, Lock, ArrowRight, CheckCircle2, TrendingUp, Users, ShieldCheck, ArrowLeft } from 'lucide-react';
 
 interface AuthScreenProps {
   onLogin: () => void;
+  initialMode?: 'signin' | 'signup';
+  onBack?: () => void;
 }
 
-export function AuthScreen({ onLogin }: AuthScreenProps) {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+export function AuthScreen({ onLogin, initialMode = 'signin', onBack }: AuthScreenProps) {
+  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [pharmacyName, setPharmacyName] = useState('');
+  const [ownerName, setOwnerName] = useState('');
+  const [email, setEmail] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +70,11 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
       {/* Right form panel */}
       <div className="flex-1 flex items-center justify-center p-6 bg-neutral-50">
         <div className="w-full max-w-md">
+          {onBack && (
+            <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-700 mb-6 transition-colors">
+              <ArrowLeft className="w-4 h-4" /> Back to home
+            </button>
+          )}
           <div className="lg:hidden flex items-center gap-2.5 mb-8">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white">
               <Pill className="w-5 h-5" />

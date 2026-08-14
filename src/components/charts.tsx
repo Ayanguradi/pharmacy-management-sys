@@ -390,3 +390,100 @@ export function StackedHBarChart({ data, formatter = (n) => String(n), onRowClic
     </div>
   );
 }
+
+interface GroupedBarChartProps {
+  data: { label: string; primary: number; secondary: number }[];
+  height?: number;
+  primaryColor?: string;
+  secondaryColor?: string;
+  primaryLabel?: string;
+  secondaryLabel?: string;
+}
+
+export function GroupedBarChart({ 
+  data, 
+  height = 240, 
+  primaryColor = '#0f766e', 
+  secondaryColor = '#ef4444',
+  primaryLabel = 'Purchases',
+  secondaryLabel = 'Returns'
+}: GroupedBarChartProps) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
+  const max = Math.max(...data.flatMap((d) => [d.primary, d.secondary])) || 1;
+  const width = 100;
+  const svgHeight = height / 3;
+  const barGroupWidth = width / Math.max(data.length, 1);
+  const barWidth = barGroupWidth * 0.35;
+  const spacing = barGroupWidth * 0.1;
+
+  return (
+    <div className="w-full relative" style={{ height }}>
+      <svg viewBox={`0 -2 ${width} ${svgHeight + 5}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
+        {/* Grid lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map((p) => (
+          <line key={p} x1="0" y1={svgHeight * p} x2={width} y2={svgHeight * p} stroke="#e2e8f0" strokeWidth="0.15" strokeDasharray="0.5" />
+        ))}
+
+        {data.map((d, i) => {
+          const xCenter = i * barGroupWidth + barGroupWidth / 2;
+          const xPrimary = xCenter - barWidth / 2 - spacing / 2 - barWidth / 2;
+          const xSecondary = xCenter + spacing / 2 - barWidth / 2;
+          
+          const hPrimary = (d.primary / max) * svgHeight * 0.9;
+          const hSecondary = (d.secondary / max) * svgHeight * 0.9;
+          
+          return (
+            <g key={i}>
+              {/* Primary Bar */}
+              <rect x={xPrimary} y={svgHeight - hPrimary} width={barWidth} height={hPrimary} rx="0.5" fill={primaryColor} className="transition-all duration-300" />
+              {/* Secondary Bar */}
+              <rect x={xSecondary} y={svgHeight - hSecondary} width={barWidth} height={hSecondary} rx="0.5" fill={secondaryColor} className="transition-all duration-300" />
+              {/* Label */}
+              <text x={xCenter} y={svgHeight + 3.5} fontSize="1.8" fill="#94a3b8" textAnchor="middle">{d.label}</text>
+              
+              {/* Hover Hitbox */}
+              <rect 
+                x={i * barGroupWidth} 
+                y={0} 
+                width={barGroupWidth} 
+                height={svgHeight} 
+                fill="transparent" 
+                onMouseEnter={() => setHoverIdx(i)}
+                onMouseLeave={() => setHoverIdx(null)}
+                className="cursor-crosshair outline-none"
+              />
+            </g>
+          );
+        })}
+      </svg>
+      
+      {/* HTML-based Tooltip */}
+      {hoverIdx !== null && (
+        <div 
+          className="absolute z-10 bg-neutral-900 text-white p-3 rounded-lg shadow-xl text-sm pointer-events-none transition-all duration-100 ease-out"
+          style={{ 
+            left: `max(10px, min(calc(${(hoverIdx / (data.length - 1)) * 100}% - 70px), calc(100% - 160px)))`, 
+            top: '20px' 
+          }}
+        >
+          <div className="font-bold mb-2 border-b border-neutral-700 pb-1">{data[hoverIdx].label}</div>
+          <div className="flex justify-between gap-4 mb-1">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: primaryColor }}></span> {primaryLabel}</span>
+            <span className="font-mono">₹{data[hoverIdx].primary.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between gap-4 mb-2">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: secondaryColor }}></span> {secondaryLabel}</span>
+            <span className="font-mono">₹{data[hoverIdx].secondary.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between gap-4 pt-2 border-t border-neutral-700 font-semibold text-neutral-300">
+            <span>Return Rate</span>
+            <span className={`font-mono ${data[hoverIdx].primary > 0 && (data[hoverIdx].secondary / data[hoverIdx].primary) > 0.05 ? 'text-amber-400' : 'text-emerald-400'}`}>
+              {data[hoverIdx].primary > 0 ? ((data[hoverIdx].secondary / data[hoverIdx].primary) * 100).toFixed(1) : 0}%
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
