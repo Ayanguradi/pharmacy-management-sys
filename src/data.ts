@@ -1,5 +1,9 @@
 import type {
-  PurchaseBill, Distributor, SalesBill, InventoryItem, Offer, SalesRecord, PurchaseReturn, SalesReturn, Customer, StaffMember, Expense
+  PurchaseBill, Distributor, SalesBill, InventoryItem, Offer, SalesRecord,
+  PurchaseReturn, SalesReturn, Customer, StaffMember, Expense,
+  Branch, BranchTransfer, DisposalLog, StockAudit,
+  ReportTemplate, SavedRecipientList, ReportSchedule,
+  RoleTemplate, LeaveRequest, Notice
 } from '@/types';
 
 export const customers: Customer[] = [
@@ -43,6 +47,7 @@ export const staffMembers: StaffMember[] = [
   { id: 's4', name: 'Ramesh K.', role: 'Admin', mobile: '9900112233', active: true, employmentStatus: 'Active', salaryStructure: { basicPay: 45000, allowances: [], deductions: [] } },
   { id: 's5', name: 'Dr. John', role: 'Owner', mobile: '9000000000', active: true, employmentStatus: 'Active' },
 ];
+export const staff = staffMembers; // backward compatibility alias
 
 export const expenses: Expense[] = [
   { id: 'exp-1', category: 'Rent', amount: 45000, date: '2026-08-01', payee: 'Ravi Builders', paymentMode: 'Bank Transfer', isRecurring: true, recurringFrequency: 'Monthly', status: 'Finalized' },
@@ -273,8 +278,164 @@ export function formatCurrency(n: number): string {
 }
 
 export const purchaseReturns: PurchaseReturn[] = [
-  { id: 'PR-2024-001', distributor: 'MediSupply Distributors', originalBillId: 'INV-2024-001', itemName: 'Paracetamol 500mg', batch: 'PC2401', returnQty: 20, reason: 'Damaged', returnPrice: 18, status: 'Sent', expectedCreditAmount: 360, createdDate: '2024-08-01' },
-  { id: 'PR-2024-002', distributor: 'PharmaCorp India', itemName: 'Metformin 500mg', batch: 'MF2405', returnQty: 50, reason: 'Near-expiry', returnPrice: 30, status: 'Credit-note-pending', expectedCreditAmount: 1500, createdDate: '2024-08-02' },
-  { id: 'PR-2024-003', distributor: 'Cipla Wholesale', originalBillId: 'INV-2024-002', itemName: 'Cetirizine 10mg', batch: 'CZ2403', returnQty: 10, reason: 'Wrong-item', returnPrice: 24, status: 'Settled', expectedCreditAmount: 240, actualCreditAmount: 240, createdDate: '2024-08-03', linkedReconciliationIssueId: 'ISS-001' },
-  { id: 'PR-2024-004', distributor: 'Alkem Distributors', itemName: 'Ranitidine 150mg', batch: 'RN2406', returnQty: 30, reason: 'Non-moving', returnPrice: 22, status: 'Settled', expectedCreditAmount: 660, actualCreditAmount: 600, createdDate: '2024-08-04' },
+  { id: 'PR-2024-001', distributor: 'MediSupply Distributors', originalBillId: 'INV-2024-001', itemName: 'Paracetamol 500mg', batch: 'PC2401', returnQty: 20, reason: 'Damaged', returnPrice: 18, status: 'Sent', expectedCreditAmount: 360, createdDate: '2024-08-01', branchId: 'br1' },
+  { id: 'PR-2024-002', distributor: 'PharmaCorp India', itemName: 'Metformin 500mg', batch: 'MF2405', returnQty: 50, reason: 'Near-expiry', returnPrice: 30, status: 'Credit-note-pending', expectedCreditAmount: 1500, createdDate: '2024-08-02', branchId: 'br1' },
+  { id: 'PR-2024-003', distributor: 'Cipla Wholesale', originalBillId: 'INV-2024-002', itemName: 'Cetirizine 10mg', batch: 'CZ2403', returnQty: 10, reason: 'Wrong-item', returnPrice: 24, status: 'Settled', expectedCreditAmount: 240, actualCreditAmount: 240, createdDate: '2024-08-03', linkedReconciliationIssueId: 'ISS-001', branchId: 'br2' },
+  { id: 'PR-2024-004', distributor: 'Alkem Distributors', itemName: 'Ranitidine 150mg', batch: 'RN2406', returnQty: 30, reason: 'Non-moving', returnPrice: 22, status: 'Settled', expectedCreditAmount: 660, actualCreditAmount: 600, createdDate: '2024-08-04', branchId: 'br1' },
+];
+
+// ─── Branches ──────────────────────────────────────────────────────
+export const branches: Branch[] = [
+  { id: 'br1', name: 'Andheri Branch', address: '12, Link Road, Andheri West, Mumbai 400053', gstin: '27ABCDE1234F1Z5', phone: '022-26281234', isActive: true },
+  { id: 'br2', name: 'Bandra Branch', address: '45, Hill Road, Bandra West, Mumbai 400050', gstin: '27XYZAB5678G2Z3', phone: '022-26501234', isActive: true },
+  { id: 'br3', name: 'Thane Branch', address: '78, Ghodbunder Road, Thane West, Thane 400607', gstin: '27THANE9012H1Z1', phone: '022-25401234', isActive: true },
+];
+
+export function getBranchName(id: string): string {
+  return branches.find(b => b.id === id)?.name ?? id;
+}
+
+// ─── Branch Transfers ──────────────────────────────────────────────
+export const branchTransfers: BranchTransfer[] = [
+  {
+    id: 'TRF-001', sourceBranchId: 'br1', destinationBranchId: 'br2', type: 'Send', initiatedBy: 'Rahul Sharma',
+    date: '2026-08-10', status: 'In Transit',
+    items: [
+      { itemName: 'Paracetamol 500mg', batch: 'PC2401', expiry: '2027-06', qtySent: 50, status: 'Pending' },
+      { itemName: 'Cetirizine 10mg', batch: 'CZ2403', expiry: '2027-03', qtySent: 30, status: 'Pending' },
+    ],
+    notes: 'Urgent restock for Bandra'
+  },
+  {
+    id: 'TRF-002', sourceBranchId: 'br2', destinationBranchId: 'br3', type: 'Send', initiatedBy: 'Priya Singh',
+    date: '2026-08-08', receivedDate: '2026-08-09', status: 'Received',
+    items: [
+      { itemName: 'Amoxicillin 250mg', batch: 'AX2402', expiry: '2027-01', qtySent: 100, qtyReceived: 100, status: 'Matched' },
+    ]
+  },
+  {
+    id: 'TRF-003', sourceBranchId: 'br3', destinationBranchId: 'br1', type: 'Request', initiatedBy: 'Amit Patel',
+    date: '2026-08-12', status: 'Draft',
+    items: [
+      { itemName: 'Metformin 500mg', batch: 'MF2405', expiry: '2027-09', qtySent: 0, status: 'Pending' },
+    ],
+    notes: 'Low stock at Thane, requesting from Andheri'
+  },
+  {
+    id: 'TRF-004', sourceBranchId: 'br1', destinationBranchId: 'br3', type: 'Send', initiatedBy: 'Ramesh K.',
+    date: '2026-08-05', receivedDate: '2026-08-07', status: 'Partially Received',
+    items: [
+      { itemName: 'Azithromycin 500mg', batch: 'AZ2401', expiry: '2027-04', qtySent: 40, qtyReceived: 40, status: 'Matched' },
+      { itemName: 'Atorvastatin 10mg', batch: 'AT2406', expiry: '2027-12', qtySent: 25, qtyReceived: 20, status: 'Short' },
+    ]
+  },
+];
+
+// ─── Disposal Logs ─────────────────────────────────────────────────
+export const disposalLogs: DisposalLog[] = [
+  { id: 'DSP-001', branchId: 'br1', itemName: 'Ranitidine 150mg', batch: 'RN2301', qty: 45, reason: 'Expired', disposedBy: 'Rahul Sharma', date: '2026-07-15', value: 990 },
+  { id: 'DSP-002', branchId: 'br2', itemName: 'Ibuprofen 400mg', batch: 'IB2305', qty: 12, reason: 'Damaged', disposedBy: 'Priya Singh', date: '2026-08-02', value: 360, note: 'Water damage in storage' },
+  { id: 'DSP-003', branchId: 'br1', itemName: 'Omeprazole 20mg', batch: 'OM2304', qty: 30, reason: 'Expired', disposedBy: 'Rahul Sharma', date: '2026-08-10', value: 450 },
+];
+
+// ─── Stock Audits ──────────────────────────────────────────────────
+export const stockAudits: StockAudit[] = [
+  {
+    id: 'AUD-001', branchId: 'br1', date: '2026-07-20', completedDate: '2026-07-20', scope: 'By Category', scopeFilter: 'Analgesic',
+    blindCount: true, status: 'Completed', countedBy: 'Rahul Sharma', approvedBy: 'Ramesh K.',
+    totalVarianceValue: -396,
+    items: [
+      { itemName: 'Paracetamol 500mg', batch: 'PC2401', expectedQty: 100, countedQty: 98, variance: -2, varianceValue: -36, reason: 'Breakage/Damage', approved: true },
+      { itemName: 'Ibuprofen 400mg', batch: 'IB2305', expectedQty: 50, countedQty: 46, variance: -4, varianceValue: -120, reason: 'Shrinkage/Theft', approved: true },
+      { itemName: 'Aspirin 75mg', batch: 'AS2402', expectedQty: 200, countedQty: 192, variance: -8, varianceValue: -240, reason: 'Expired & Discarded', approved: true },
+    ]
+  },
+  {
+    id: 'AUD-002', branchId: 'br2', date: '2026-08-12', scope: 'Random Sample',
+    blindCount: true, status: 'Pending Review', countedBy: 'Priya Singh',
+    totalVarianceValue: -180,
+    items: [
+      { itemName: 'Cetirizine 10mg', batch: 'CZ2403', expectedQty: 80, countedQty: 78, variance: -2, varianceValue: -48 },
+      { itemName: 'Metformin 500mg', batch: 'MF2405', expectedQty: 120, countedQty: 116, variance: -4, varianceValue: -132 },
+    ]
+  },
+];
+
+// ─── Business Reports Mock Data ───────────────────────────────────────
+export const reportTemplates: ReportTemplate[] = [
+  // Sales
+  { id: 'rep-s1', name: 'Sales Register', description: 'Comprehensive list of all sales invoices.', category: 'Sales', isStarred: true, isCustom: false, dataSource: 'sales', availableFilters: [{ id: 'date', label: 'Date Range', type: 'date-range' }], columns: [{ id: 'date', label: 'Date', type: 'date' }, { id: 'billNo', label: 'Bill No', type: 'string' }, { id: 'patient', label: 'Patient Name', type: 'string' }, { id: 'amount', label: 'Total Amount', type: 'currency' }] },
+  { id: 'rep-s2', name: 'Sale & Return Product-Level Detail', description: 'Itemized sales and returns data.', category: 'Sales', isStarred: false, isCustom: false, dataSource: 'sales-items', availableFilters: [{ id: 'date', label: 'Date Range', type: 'date-range' }], columns: [] },
+  { id: 'rep-s3', name: 'Sales Summary', description: 'Aggregated sales data by day or month.', category: 'Sales', isStarred: false, isCustom: false, dataSource: 'sales', availableFilters: [{ id: 'date', label: 'Date Range', type: 'date-range' }], columns: [] },
+  { id: 'rep-s4', name: 'Sales Register (Doctor-Wise)', description: 'Sales filtered and grouped by prescribing doctor.', category: 'Sales', isStarred: false, isCustom: false, dataSource: 'sales', availableFilters: [{ id: 'date', label: 'Date Range', type: 'date-range' }, { id: 'doctor', label: 'Doctor', type: 'multi-select' }], columns: [] },
+  { id: 'rep-s5', name: 'Sales Register (Drug Schedule-Wise)', description: 'Sales split by Schedule H, H1, X etc.', category: 'Sales', isStarred: false, isCustom: false, dataSource: 'sales-items', availableFilters: [{ id: 'date', label: 'Date Range', type: 'date-range' }], columns: [] },
+  { id: 'rep-s6', name: 'Refill Reminder Performance', description: 'Success rate of scheduled refill reminders.', category: 'Sales', isStarred: true, isCustom: false, dataSource: 'customers', availableFilters: [], columns: [] },
+
+  // Stock
+  { id: 'rep-st1', name: 'Fast-Moving Stock Products', description: 'High velocity items based on sales volume.', category: 'Stock', isStarred: true, isCustom: false, dataSource: 'inventory', availableFilters: [], columns: [] },
+  { id: 'rep-st2', name: 'Slow-Moving Stock Products', description: 'Items with low turnover rate.', category: 'Stock', isStarred: false, isCustom: false, dataSource: 'inventory', availableFilters: [], columns: [] },
+  { id: 'rep-st3', name: 'Current Stock Products with Value', description: 'Complete inventory valuation report.', category: 'Stock', isStarred: false, isCustom: false, dataSource: 'inventory', availableFilters: [], columns: [] },
+  { id: 'rep-st4', name: 'Expired or Near-Expiry Stock', description: 'Items expiring within selected timeframe.', category: 'Stock', isStarred: true, isCustom: false, dataSource: 'inventory', availableFilters: [], columns: [] },
+  { id: 'rep-st5', name: 'Stock Adjustments Register', description: 'Log of all stock audits and manual adjustments.', category: 'Stock', isStarred: false, isCustom: false, dataSource: 'audits', availableFilters: [], columns: [] },
+  { id: 'rep-st6', name: 'Shrinkage Report', description: 'Value lost to shrinkage, theft, and damage.', category: 'Stock', isStarred: false, isCustom: false, dataSource: 'audits', availableFilters: [], columns: [] },
+  { id: 'rep-st7', name: 'Disposal Register', description: 'Record of safely disposed expired/damaged stock.', category: 'Stock', isStarred: false, isCustom: false, dataSource: 'disposals', availableFilters: [], columns: [] },
+
+  // Purchase
+  { id: 'rep-p1', name: 'Purchase Register', description: 'Comprehensive list of purchase bills.', category: 'Purchase', isStarred: false, isCustom: false, dataSource: 'purchases', availableFilters: [{ id: 'date', label: 'Date Range', type: 'date-range' }], columns: [] },
+  { id: 'rep-p2', name: 'PO Reconciliation Summary', description: 'Discrepancies between ordered and received stock.', category: 'Purchase', isStarred: true, isCustom: false, dataSource: 'purchases', availableFilters: [], columns: [] },
+  { id: 'rep-p3', name: 'Distributor Fulfillment Report', description: 'Fulfillment rates by distributor.', category: 'Purchase', isStarred: false, isCustom: false, dataSource: 'distributors', availableFilters: [], columns: [] },
+
+  // Payments
+  { id: 'rep-pay1', name: 'Pending Payments for Customers', description: 'Outstanding credit/dues from customers.', category: 'Payments', isStarred: true, isCustom: false, dataSource: 'sales', availableFilters: [], columns: [] },
+  { id: 'rep-pay2', name: 'Pending Payments for Distributors', description: 'Outstanding payables to distributors.', category: 'Payments', isStarred: true, isCustom: false, dataSource: 'purchases', availableFilters: [], columns: [] },
+  
+  // GST
+  { id: 'rep-g1', name: 'GSTR-1 (Sales & Sale Returns)', description: 'Outward supplies statement for GST filing.', category: 'GST', isStarred: true, isCustom: false, dataSource: 'sales', availableFilters: [{ id: 'date', label: 'Date Range', type: 'date-range' }], columns: [] },
+  { id: 'rep-g2', name: 'GSTR-2 (Purchase & Purchase Returns)', description: 'Inward supplies statement for GST filing.', category: 'GST', isStarred: true, isCustom: false, dataSource: 'purchases', availableFilters: [{ id: 'date', label: 'Date Range', type: 'date-range' }], columns: [] },
+  { id: 'rep-g3', name: 'GSTR-3B (Summary)', description: 'Monthly summary of outward and inward supplies.', category: 'GST', isStarred: true, isCustom: false, dataSource: 'gst', availableFilters: [{ id: 'date', label: 'Date Range', type: 'date-range' }], columns: [] },
+
+  // Party
+  { id: 'rep-pty1', name: 'Customers Register (Debtors)', description: 'Full customer list with balances.', category: 'Party', isStarred: false, isCustom: false, dataSource: 'customers', availableFilters: [], columns: [] },
+  { id: 'rep-pty2', name: 'Payment Ledger for Customer', description: 'Transaction history for a specific customer.', category: 'Party', isStarred: false, isCustom: false, dataSource: 'sales', availableFilters: [], columns: [] },
+  { id: 'rep-pty3', name: 'Payment Ledger for Distributor', description: 'Transaction history for a specific distributor.', category: 'Party', isStarred: false, isCustom: false, dataSource: 'purchases', availableFilters: [], columns: [] },
+
+  // Order
+  { id: 'rep-o1', name: 'Purchase Order Register', description: 'Log of all generated purchase orders.', category: 'Order', isStarred: false, isCustom: false, dataSource: 'orders', availableFilters: [], columns: [] },
+  { id: 'rep-o2', name: 'Branch Transfer Register', description: 'Record of all internal stock transfers.', category: 'Order', isStarred: false, isCustom: false, dataSource: 'transfers', availableFilters: [], columns: [] },
+
+  // Staff & Expenses
+  { id: 'rep-se1', name: 'Staff Attendance Register', description: 'Monthly attendance records.', category: 'Staff & Expenses', isStarred: false, isCustom: false, dataSource: 'staff', availableFilters: [], columns: [] },
+  { id: 'rep-se2', name: 'Expense Register by Category', description: 'Breakdown of operational expenses.', category: 'Staff & Expenses', isStarred: true, isCustom: false, dataSource: 'expenses', availableFilters: [], columns: [] },
+];
+
+export const savedRecipientLists: SavedRecipientList[] = [
+  { id: 'rl1', name: 'Management Team', emails: ['owner@medicore.in', 'admin@medicore.in'] },
+  { id: 'rl2', name: 'Accountants', emails: ['accounts@medicore.in', 'ca@partner.com'] },
+];
+
+export const reportSchedules: ReportSchedule[] = [
+  { id: 'sch1', reportId: 'rep-g3', frequency: 'Monthly', format: 'PDF', recipients: ['rl2'], isActive: true },
+  { id: 'sch2', reportId: 'rep-se2', frequency: 'Weekly', format: 'XLS', recipients: ['rl1'], isActive: true },
+];
+
+// ─── Permissions & HR ──────────────────────────────────────────────────
+export const roleTemplates: RoleTemplate[] = [
+  { id: 'rt-owner', role: 'Owner', permissions: { 'dashboard': 'Full Access', 'purchases': 'Full Access', 'sales': 'Full Access', 'customers': 'Full Access', 'distributors': 'Full Access', 'inventory': 'Full Access', 'reports': 'Full Access', 'offers': 'Full Access', 'settings': 'Full Access', 'staff': 'Full Access', 'expenses': 'Full Access', 'branch-transfers': 'Full Access', 'stock-audit': 'Full Access' } },
+  { id: 'rt-admin', role: 'Admin', permissions: { 'dashboard': 'Full Access', 'purchases': 'Full Access', 'sales': 'Full Access', 'customers': 'Full Access', 'distributors': 'Full Access', 'inventory': 'Full Access', 'reports': 'Full Access', 'offers': 'Full Access', 'settings': 'Full Access', 'staff': 'Full Access', 'expenses': 'Full Access', 'branch-transfers': 'Full Access', 'stock-audit': 'Full Access' } },
+  { id: 'rt-manager', role: 'Manager', permissions: { 'dashboard': 'Full Access', 'purchases': 'Full Access', 'sales': 'Full Access', 'customers': 'Full Access', 'distributors': 'Full Access', 'inventory': 'Full Access', 'reports': 'Full Access', 'offers': 'Full Access', 'settings': 'No Access', 'staff': 'Full Access', 'expenses': 'Full Access', 'branch-transfers': 'Full Access', 'stock-audit': 'Full Access' } },
+  { id: 'rt-pharmacist', role: 'Pharmacist', permissions: { 'dashboard': 'Full Access', 'purchases': 'No Access', 'sales': 'Full Access', 'customers': 'Full Access', 'distributors': 'No Access', 'inventory': 'View Only', 'reports': 'No Access', 'offers': 'No Access', 'settings': 'No Access', 'staff': 'No Access', 'expenses': 'No Access', 'branch-transfers': 'View Only', 'stock-audit': 'No Access' } },
+  { id: 'rt-cashier', role: 'Cashier', permissions: { 'dashboard': 'Full Access', 'purchases': 'No Access', 'sales': 'Full Access', 'customers': 'View Only', 'distributors': 'No Access', 'inventory': 'No Access', 'reports': 'No Access', 'offers': 'No Access', 'settings': 'No Access', 'staff': 'No Access', 'expenses': 'No Access', 'branch-transfers': 'No Access', 'stock-audit': 'No Access' } },
+  { id: 'rt-assistant', role: 'Assistant', permissions: { 'dashboard': 'Full Access', 'purchases': 'Full Access', 'sales': 'No Access', 'customers': 'No Access', 'distributors': 'No Access', 'inventory': 'View Only', 'reports': 'No Access', 'offers': 'No Access', 'settings': 'No Access', 'staff': 'No Access', 'expenses': 'No Access', 'branch-transfers': 'No Access', 'stock-audit': 'No Access' } },
+  { id: 'rt-accountant', role: 'Accountant', permissions: { 'dashboard': 'Full Access', 'purchases': 'No Access', 'sales': 'No Access', 'customers': 'View Only', 'distributors': 'View Only', 'inventory': 'No Access', 'reports': 'Full Access', 'offers': 'No Access', 'settings': 'No Access', 'staff': 'No Access', 'expenses': 'Full Access', 'branch-transfers': 'No Access', 'stock-audit': 'No Access' } },
+];
+
+export const leaveRequests: LeaveRequest[] = [
+  { id: 'lr-1', staffId: 's1', type: 'Casual', startDate: '2026-08-20', endDate: '2026-08-21', reason: 'Family function', status: 'Pending', appliedOn: '2026-08-14' },
+  { id: 'lr-2', staffId: 's2', type: 'Sick', startDate: '2026-08-10', endDate: '2026-08-11', reason: 'Viral fever', status: 'Approved', approverNote: 'Take care', appliedOn: '2026-08-10' },
+  { id: 'lr-3', staffId: 's1', type: 'Earned', startDate: '2026-07-01', endDate: '2026-07-05', reason: 'Vacation', status: 'Rejected', approverNote: 'Too many staff on leave that week. Reschedule please.', appliedOn: '2026-06-15' },
+];
+
+export const notices: Notice[] = [
+  { id: 'n-1', title: 'Store closed for stocktaking on the 20th', content: 'We will be conducting a full inventory audit on the 20th. Only auditing staff need to be present.', date: '2026-08-15', author: 'Dr. Apollo (Owner)', authorRole: 'Owner' },
+  { id: 'n-2', title: 'New Attendance Policy', content: 'Please ensure you clock in using the My Space portal daily.', date: '2026-08-10', author: 'Admin User', authorRole: 'Admin' },
 ];

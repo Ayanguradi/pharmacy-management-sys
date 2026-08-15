@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { 
   Users, UserPlus, Search, Filter, Mail, Phone, MapPin, Calendar, 
-  Clock, Shield, ArrowLeft, MoreVertical, CreditCard, ChevronDown, CheckCircle2, AlertCircle
+  Clock, Shield, ArrowLeft, MoreVertical, CreditCard, ChevronDown, CheckCircle2, AlertCircle, XCircle
 } from 'lucide-react';
-import { staffMembers, expenses } from '@/data';
-import type { View, StaffMember, Expense } from '@/types';
+import { staffMembers, expenses, leaveRequests, roleTemplates } from '@/data';
+import type { View, StaffMember, Expense, PermissionLevel } from '@/types';
 import { StatCard, Button, Badge, Card, Select } from '@/components/ui';
 
 interface StaffManagementProps {
@@ -39,10 +39,39 @@ function StaffList({ onSelect }: { onSelect: (s: StaffMember) => void }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Total Active Staff" value={activeCount} icon={<Users className="w-5 h-5" />} color="blue" />
-        <StatCard label="On Leave Today" value={leaveCount} icon={<Calendar className="w-5 h-5" />} color="amber" />
-        <StatCard label="Pending Payrolls" value={payrollDue} icon={<CreditCard className="w-5 h-5" />} color={payrollDue > 0 ? "rose" : "green"} />
+        <StatCard label="Total Active Staff" value={activeCount.toString()} icon={<Users className="w-5 h-5" />} color="blue" />
+        <StatCard label="On Leave Today" value={leaveCount.toString()} icon={<Calendar className="w-5 h-5" />} color="amber" />
+        <StatCard label="Pending Payrolls" value={payrollDue.toString()} icon={<CreditCard className="w-5 h-5" />} color={payrollDue > 0 ? "red" : "green"} />
       </div>
+
+      {/* Pending Leave Requests */}
+      <Card className="p-0 overflow-hidden border-amber-200 shadow-sm">
+         <div className="p-4 border-b border-amber-200 bg-amber-50 flex justify-between items-center">
+            <h3 className="font-bold text-amber-900 flex items-center gap-2"><Calendar className="w-4 h-4 text-amber-600" /> Pending Leave Requests</h3>
+            <Badge color="amber">{leaveRequests.filter(l => l.status === 'Pending').length} Pending</Badge>
+         </div>
+         <div className="divide-y divide-neutral-100">
+            {leaveRequests.filter(l => l.status === 'Pending').map(leave => {
+               const staffName = staffMembers.find(s => s.id === leave.staffId)?.name || 'Unknown';
+               return (
+                 <div key={leave.id} className="p-4 flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:bg-neutral-50 transition-colors">
+                    <div>
+                      <div className="font-semibold text-neutral-900">{staffName} <span className="text-neutral-500 font-normal text-sm ml-2">({leave.type})</span></div>
+                      <div className="text-sm text-neutral-600 mt-1">{new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</div>
+                      {leave.reason && <div className="text-xs text-neutral-500 mt-1 italic">"{leave.reason}"</div>}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" icon={<XCircle className="w-4 h-4" />}>Reject</Button>
+                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" icon={<CheckCircle2 className="w-4 h-4" />}>Approve</Button>
+                    </div>
+                 </div>
+               );
+            })}
+            {leaveRequests.filter(l => l.status === 'Pending').length === 0 && (
+               <div className="p-4 text-center text-sm text-neutral-500">No pending leave requests.</div>
+            )}
+         </div>
+      </Card>
 
       <Card className="p-0 overflow-hidden">
         <div className="p-4 border-b border-neutral-200 flex flex-col sm:flex-row gap-4 justify-between bg-neutral-50/50">
@@ -118,7 +147,7 @@ function StaffList({ onSelect }: { onSelect: (s: StaffMember) => void }) {
 
 // ─── Staff Detail ───────────────────────────────────────────────────────────
 function StaffDetail({ staff, onBack }: { staff: StaffMember, onBack: () => void }) {
-  const [activeTab, setActiveTab] = useState<'profile'|'attendance'|'salary'|'performance'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile'|'attendance'|'salary'|'performance'|'permissions'>('permissions');
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.20))]">
@@ -159,6 +188,7 @@ function StaffDetail({ staff, onBack }: { staff: StaffMember, onBack: () => void
               { id: 'attendance', label: 'Attendance & Leaves' },
               { id: 'salary', label: 'Salary & Payroll' },
               { id: 'performance', label: 'Performance' },
+              { id: 'permissions', label: 'Access & Permissions' },
             ].map(t => (
               <button
                 key={t.id}
@@ -183,6 +213,7 @@ function StaffDetail({ staff, onBack }: { staff: StaffMember, onBack: () => void
           {activeTab === 'performance' && (
              <div className="flex items-center justify-center h-64 text-neutral-400">Performance module integrated with Sales Analytics.</div>
           )}
+          {activeTab === 'permissions' && <PermissionsTab staff={staff} />}
         </div>
       </div>
     </div>
@@ -190,6 +221,94 @@ function StaffDetail({ staff, onBack }: { staff: StaffMember, onBack: () => void
 }
 
 // ─── Tabs ───────────────────────────────────────────────────────────────────
+
+function PermissionsTab({ staff }: { staff: StaffMember }) {
+  const template = roleTemplates.find(rt => rt.role === staff.role) || roleTemplates[0];
+  const [overrides, setOverrides] = useState<Record<string, PermissionLevel>>(staff.permissionOverrides || {});
+
+  const modules = [
+    'dashboard', 'purchases', 'sales', 'customers', 'distributors', 
+    'inventory', 'reports', 'offers', 'settings', 'staff', 'expenses', 
+    'branch-transfers', 'stock-audit'
+  ];
+
+  const handleOverride = (module: string, level: PermissionLevel) => {
+    if (template.permissions[module] === level) {
+      // If setting back to default, remove override
+      const newOverrides = { ...overrides };
+      delete newOverrides[module];
+      setOverrides(newOverrides);
+    } else {
+      setOverrides({ ...overrides, [module]: level });
+    }
+  };
+
+  const handleReset = () => setOverrides({});
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl border shadow-sm">
+         <div>
+            <div className="text-sm font-semibold text-neutral-900">Role Template: <span className="text-primary-600">{template.role}</span></div>
+            <p className="text-xs text-neutral-500 mt-1">Overrides take effect on the staff member's next login.</p>
+         </div>
+         <Button variant="outline" onClick={handleReset} disabled={Object.keys(overrides).length === 0}>Reset to Default</Button>
+      </div>
+
+      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+        <table className="w-full text-sm text-left">
+           <thead className="bg-neutral-50 text-xs uppercase text-neutral-500 border-b">
+              <tr>
+                 <th className="px-6 py-4">Module</th>
+                 <th className="px-6 py-4">Template Default</th>
+                 <th className="px-6 py-4">Custom Access</th>
+              </tr>
+           </thead>
+           <tbody className="divide-y divide-neutral-100">
+              {modules.map(mod => {
+                 const defaultLevel = template.permissions[mod] || 'No Access';
+                 const currentLevel = overrides[mod] || defaultLevel;
+                 const isOverridden = !!overrides[mod];
+
+                 return (
+                   <tr key={mod} className="hover:bg-neutral-50 transition-colors">
+                      <td className="px-6 py-4 font-medium text-neutral-900 capitalize">{mod.replace('-', ' ')}</td>
+                      <td className="px-6 py-4">
+                         <span className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${
+                           defaultLevel === 'Full Access' ? 'bg-emerald-100 text-emerald-700' :
+                           defaultLevel === 'View Only' ? 'bg-blue-100 text-blue-700' :
+                           'bg-neutral-100 text-neutral-600'
+                         }`}>
+                           {defaultLevel}
+                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                         <div className="flex items-center gap-3">
+                           <Select 
+                             value={currentLevel} 
+                             onChange={(e) => handleOverride(mod, e.target.value as PermissionLevel)}
+                             className={isOverridden ? "border-amber-400 bg-amber-50 text-amber-900" : ""}
+                           >
+                              <option value="Full Access">Full Access</option>
+                              <option value="View Only">View Only</option>
+                              <option value="No Access">No Access</option>
+                           </Select>
+                           {isOverridden && <Badge color="amber">Overridden</Badge>}
+                         </div>
+                      </td>
+                   </tr>
+                 );
+              })}
+           </tbody>
+        </table>
+      </div>
+      
+      <div className="flex justify-end">
+         <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" icon={<CheckCircle2 className="w-4 h-4" />}>Save Permissions</Button>
+      </div>
+    </div>
+  );
+}
 
 function ProfileTab({ staff }: { staff: StaffMember }) {
   return (

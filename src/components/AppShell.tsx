@@ -1,9 +1,12 @@
 import { type ReactNode, useState, useEffect } from 'react';
 import {
   LayoutDashboard, ShoppingCart, TrendingUp, Package, Users, FileBarChart,
-  Tag, Settings, LogOut, Menu, X, Bell, Search, Pill, ChevronDown, ChevronLeft, ChevronRight, Truck, UserCog, Receipt
+  Tag, Settings, LogOut, Menu, X, Bell, Search, Pill, ChevronDown, ChevronLeft, ChevronRight, Truck,
+  UserCog, Receipt, ArrowLeftRight, ClipboardCheck, Building2
 } from 'lucide-react';
-import type { View, StaffMember } from '@/types';
+import type { View, StaffMember, PermissionLevel } from '@/types';
+import { branches, staff } from '@/data';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface NavItem {
   id: View;
@@ -23,8 +26,11 @@ const navItems: NavItem[] = [
   { id: 'reports', label: 'Reports', icon: <FileBarChart className="w-5 h-5" />, group: 'Insights' },
   { id: 'offers', label: 'Offers', icon: <Tag className="w-5 h-5" />, group: 'Insights' },
   { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" />, group: 'System' },
-  { id: 'staff', label: 'Staff', icon: <UserCog className="w-5 h-5" />, group: 'Management', roles: ['Owner', 'Admin', 'Manager'] },
-  { id: 'expenses', label: 'Expenses', icon: <Receipt className="w-5 h-5" />, group: 'Management', roles: ['Owner', 'Admin', 'Manager'] },
+  { id: 'staff', label: 'Staff', icon: <Users className="w-5 h-5" />, group: 'Management' },
+  { id: 'expenses', label: 'Expenses', icon: <Receipt className="w-5 h-5" />, group: 'Management' },
+  { id: 'branch-transfers', label: 'Transfers', icon: <ArrowLeftRight className="w-5 h-5" />, group: 'Multi-Branch' },
+  { id: 'stock-audit', label: 'Stock Audit', icon: <ClipboardCheck className="w-5 h-5" />, group: 'Multi-Branch' },
+  { id: 'my-space', label: 'My Space', icon: <UserCog className="w-5 h-5" />, group: 'Personal' },
 ];
 
 const viewLabels: Record<string, string> = {
@@ -36,29 +42,46 @@ const viewLabels: Record<string, string> = {
   'reports': 'Reports',
   'offers': 'Offers',
   'settings': 'Settings',
+  'staff': 'Staff', 'staff-detail': 'Staff Detail',
+  'expenses': 'Expenses',
+  'branch-transfers': 'Branch Transfers',
+  'stock-audit': 'Stock Audit',
 };
 
 interface AppShellProps {
   current: View;
   currentUserRole?: string;
+  selectedBranchId?: string;
+  onBranchChange?: (branchId: string) => void;
   onNavigate: (v: View) => void;
   onLogout: () => void;
   children: ReactNode;
 }
 
-export function AppShell({ current, currentUserRole = 'Admin', onNavigate, onLogout, children }: AppShellProps) {
+export function AppShell({ current, currentUserRole = 'Admin', selectedBranchId = 'all', onBranchChange, onNavigate, onLogout, children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [switchOpen, setSwitchOpen] = useState(false); // Quick switch user dropdown
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem('sidebarCollapsed') === 'true';
   });
+  
+  // Use permissions to drive UI
+  const { hasAccess } = usePermissions(currentUserRole);
 
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', sidebarCollapsed.toString());
   }, [sidebarCollapsed]);
 
   const baseView = current.split('-')[0] as View;
-  const filteredNavItems = navItems.filter(item => !item.roles || item.roles.includes(currentUserRole));
+  
+  // Filter nav items based on granular permissions, ignoring old static roles
+  const filteredNavItems = navItems.filter(item => {
+    // Dashboard and My Space are always visible if explicitly requested/hardcoded, but let's check permissions
+    if (item.id === 'my-space' || item.id === 'dashboard') return true;
+    return hasAccess(item.id);
+  });
+  
   const groups = Array.from(new Set(filteredNavItems.map((item) => item.group || '')));
 
   return (
@@ -181,6 +204,25 @@ export function AppShell({ current, currentUserRole = 'Admin', onNavigate, onLog
             <span className="font-medium text-neutral-700">{viewLabels[current] ?? 'Dashboard'}</span>
           </div>
 
+          {/* Branch Selector */}
+          {['Owner', 'Admin'].includes(currentUserRole) && onBranchChange && (
+            <div className="hidden sm:flex items-center gap-2 ml-4 bg-primary-50 rounded-lg px-3 py-1.5 border border-primary-100">
+              <Building2 className="w-4 h-4 text-primary-600" />
+              <select
+                value={selectedBranchId}
+                onChange={(e) => onBranchChange(e.target.value)}
+                className="bg-transparent text-sm font-medium text-primary-700 border-none outline-none cursor-pointer appearance-none pr-5"
+                style={{ backgroundImage: 'none' }}
+              >
+                <option value="all">All Branches</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-primary-500 -ml-4 pointer-events-none" />
+            </div>
+          )}
+
           <div className="ml-auto flex items-center gap-3">
             <div className="hidden md:flex relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
@@ -194,6 +236,36 @@ export function AppShell({ current, currentUserRole = 'Admin', onNavigate, onLog
               <Bell className="w-5 h-5" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-danger-500 rounded-full ring-2 ring-white" />
             </button>
+
+            <div className="relative">
+              <button onClick={() => setSwitchOpen(!switchOpen)} className="flex items-center gap-2 p-1.5 px-3 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition-colors border border-neutral-200 shadow-sm text-sm font-medium text-neutral-700">
+                <UserCog className="w-4 h-4 text-primary-600" />
+                <span className="hidden sm:inline">Role: {currentUserRole}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-neutral-500" />
+              </button>
+              {switchOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setSwitchOpen(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-neutral-200 py-2 z-20 animate-fade-in">
+                    <div className="px-3 py-1.5 text-xs font-semibold text-neutral-400 uppercase tracking-wider">Quick Switch</div>
+                    {['Owner', 'Manager', 'Pharmacist', 'Cashier', 'Assistant', 'Accountant'].map(role => (
+                      <button 
+                        key={role}
+                        onClick={() => {
+                          // This triggers a global reload for simplicity in our mock, passing the role as a query param or localStorage.
+                          // Ideally it would be state in App.tsx.
+                          localStorage.setItem('mockRole', role);
+                          window.location.reload();
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-neutral-50 ${currentUserRole === role ? 'text-primary-600 font-medium bg-primary-50' : 'text-neutral-700'}`}
+                      >
+                        {role}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
 
             <div className="relative">
               <button onClick={() => setProfileOpen(!profileOpen)} className="flex items-center gap-2 p-1 pr-2 hover:bg-neutral-100 rounded-lg transition-colors">
