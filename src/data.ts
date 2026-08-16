@@ -18,7 +18,7 @@ export const staffMembers: StaffMember[] = [
   { 
     id: 's1', name: 'Rahul Sharma', role: 'Pharmacist', mobile: '9820012345', active: true,
     email: 'rahul@medicore.in', address: '12, MG Road, Mumbai', joiningDate: '2022-01-15',
-    employmentStatus: 'Active',
+    employmentStatus: 'Active', lastLoginAt: '2026-08-16T09:05:00Z',
     emergencyContact: { name: 'Priya Sharma', number: '9820012346' },
     bankDetails: { accountNumber: '1234567890', ifsc: 'HDFC0001234', holderName: 'Rahul Sharma' },
     leaveBalances: [
@@ -36,15 +36,15 @@ export const staffMembers: StaffMember[] = [
       { id: 'pay-2', period: 'June 2026', computedPay: 30500, status: 'Paid', paidDate: '2026-07-01', paymentMode: 'Bank Transfer' }
     ],
     attendance: [
-      { date: '2026-08-01', status: 'Present' },
-      { date: '2026-08-02', status: 'Holiday' }, // Sunday
-      { date: '2026-08-03', status: 'Present' },
+      { date: '2026-08-01', status: 'Present', clockInTime: '08:55', clockOutTime: '18:05' },
+      { date: '2026-08-02', status: 'Holiday' },
+      { date: '2026-08-03', status: 'Present', clockInTime: '09:12', clockOutTime: '18:00' },
       { date: '2026-08-04', status: 'Leave' },
     ]
   },
-  { id: 's2', name: 'Priya Singh', role: 'Cashier', mobile: '9811122334', active: true, employmentStatus: 'Active', salaryStructure: { basicPay: 18000, allowances: [], deductions: [] } },
-  { id: 's3', name: 'Amit Patel', role: 'Assistant', mobile: '9988776655', active: true, employmentStatus: 'On Leave', salaryStructure: { basicPay: 15000, allowances: [], deductions: [] } },
-  { id: 's4', name: 'Ramesh K.', role: 'Admin', mobile: '9900112233', active: true, employmentStatus: 'Active', salaryStructure: { basicPay: 45000, allowances: [], deductions: [] } },
+  { id: 's2', name: 'Priya Singh', role: 'Cashier', mobile: '9811122334', active: true, employmentStatus: 'Active', lastLoginAt: '2026-08-15T14:30:00Z', salaryStructure: { basicPay: 18000, allowances: [], deductions: [] } },
+  { id: 's3', name: 'Amit Patel', role: 'Assistant', mobile: '9988776655', active: true, employmentStatus: 'On Leave', lastLoginAt: '2026-08-12T10:00:00Z', salaryStructure: { basicPay: 15000, allowances: [], deductions: [] } },
+  { id: 's4', name: 'Ramesh K.', role: 'Admin', mobile: '9900112233', active: true, employmentStatus: 'Active', lastLoginAt: '2026-08-16T08:45:00Z', salaryStructure: { basicPay: 45000, allowances: [], deductions: [] } },
   { id: 's5', name: 'Dr. John', role: 'Owner', mobile: '9000000000', active: true, employmentStatus: 'Active' },
 ];
 export const staff = staffMembers; // backward compatibility alias
@@ -298,7 +298,8 @@ export function getBranchName(id: string): string {
 // ─── Branch Transfers ──────────────────────────────────────────────
 export const branchTransfers: BranchTransfer[] = [
   {
-    id: 'TRF-001', sourceBranchId: 'br1', destinationBranchId: 'br2', type: 'Send', initiatedBy: 'Rahul Sharma',
+    id: 'TRF-001', sourceBranchId: 'br1', destinationBranchId: 'br2', destinationType: 'Internal', type: 'Send', chargeType: 'No Charge',
+    initiatedBy: 'Rahul Sharma',
     date: '2026-08-10', status: 'In Transit',
     items: [
       { itemName: 'Paracetamol 500mg', batch: 'PC2401', expiry: '2027-06', qtySent: 50, status: 'Pending' },
@@ -307,14 +308,16 @@ export const branchTransfers: BranchTransfer[] = [
     notes: 'Urgent restock for Bandra'
   },
   {
-    id: 'TRF-002', sourceBranchId: 'br2', destinationBranchId: 'br3', type: 'Send', initiatedBy: 'Priya Singh',
+    id: 'TRF-002', sourceBranchId: 'br2', destinationBranchId: 'br3', destinationType: 'Internal', type: 'Send', chargeType: 'At Purchase Price',
+    totalValue: 2800, initiatedBy: 'Priya Singh',
     date: '2026-08-08', receivedDate: '2026-08-09', status: 'Received',
     items: [
-      { itemName: 'Amoxicillin 250mg', batch: 'AX2402', expiry: '2027-01', qtySent: 100, qtyReceived: 100, status: 'Matched' },
+      { itemName: 'Amoxicillin 250mg', batch: 'AX2402', expiry: '2027-01', qtySent: 100, qtyReceived: 100, unitPrice: 28, status: 'Matched' },
     ]
   },
   {
-    id: 'TRF-003', sourceBranchId: 'br3', destinationBranchId: 'br1', type: 'Request', initiatedBy: 'Amit Patel',
+    id: 'TRF-003', sourceBranchId: 'br3', destinationBranchId: 'br1', destinationType: 'Internal', type: 'Request', chargeType: 'No Charge',
+    initiatedBy: 'Amit Patel',
     date: '2026-08-12', status: 'Draft',
     items: [
       { itemName: 'Metformin 500mg', batch: 'MF2405', expiry: '2027-09', qtySent: 0, status: 'Pending' },
@@ -322,12 +325,24 @@ export const branchTransfers: BranchTransfer[] = [
     notes: 'Low stock at Thane, requesting from Andheri'
   },
   {
-    id: 'TRF-004', sourceBranchId: 'br1', destinationBranchId: 'br3', type: 'Send', initiatedBy: 'Ramesh K.',
+    id: 'TRF-004', sourceBranchId: 'br1', destinationBranchId: 'br3', destinationType: 'Internal', type: 'Send', chargeType: 'At MRP',
+    totalValue: 5425, initiatedBy: 'Ramesh K.',
     date: '2026-08-05', receivedDate: '2026-08-07', status: 'Partially Received',
     items: [
-      { itemName: 'Azithromycin 500mg', batch: 'AZ2401', expiry: '2027-04', qtySent: 40, qtyReceived: 40, status: 'Matched' },
-      { itemName: 'Atorvastatin 10mg', batch: 'AT2406', expiry: '2027-12', qtySent: 25, qtyReceived: 20, status: 'Short' },
+      { itemName: 'Azithromycin 500mg', batch: 'AZ2401', expiry: '2027-04', qtySent: 40, qtyReceived: 40, unitPrice: 120, status: 'Matched' },
+      { itemName: 'Atorvastatin 10mg', batch: 'AT2406', expiry: '2027-12', qtySent: 25, qtyReceived: 20, unitPrice: 45, status: 'Short' },
     ]
+  },
+  {
+    id: 'TRF-005', sourceBranchId: 'br1', destinationBranchId: '', destinationType: 'External',
+    externalDestination: { name: 'City Care Pharmacy', contactPerson: 'Dr. Mehta', mobile: '9876500001', address: '23 Station Road, Pune' },
+    type: 'Send', chargeType: 'At MRP', totalValue: 3500,
+    initiatedBy: 'Ramesh K.', date: '2026-08-14', status: 'Confirmed Delivered',
+    items: [
+      { itemName: 'Paracetamol 500mg', batch: 'PC2401', expiry: '2027-06', qtySent: 100, unitPrice: 25, status: 'Matched' },
+      { itemName: 'Cetirizine 10mg', batch: 'CZ2403', expiry: '2027-03', qtySent: 40, unitPrice: 35, status: 'Matched' },
+    ],
+    notes: 'Emergency supply to partner pharmacy'
   },
 ];
 
@@ -345,9 +360,9 @@ export const stockAudits: StockAudit[] = [
     blindCount: true, status: 'Completed', countedBy: 'Rahul Sharma', approvedBy: 'Ramesh K.',
     totalVarianceValue: -396,
     items: [
-      { itemName: 'Paracetamol 500mg', batch: 'PC2401', expectedQty: 100, countedQty: 98, variance: -2, varianceValue: -36, reason: 'Breakage/Damage', approved: true },
-      { itemName: 'Ibuprofen 400mg', batch: 'IB2305', expectedQty: 50, countedQty: 46, variance: -4, varianceValue: -120, reason: 'Shrinkage/Theft', approved: true },
-      { itemName: 'Aspirin 75mg', batch: 'AS2402', expectedQty: 200, countedQty: 192, variance: -8, varianceValue: -240, reason: 'Expired & Discarded', approved: true },
+      { itemName: 'Paracetamol 500mg', batch: 'PC2401', expectedQty: 100, countedQty: 98, variance: -2, varianceValue: -36, unitPrice: 18, reason: 'Breakage/Damage', approved: true },
+      { itemName: 'Ibuprofen 400mg', batch: 'IB2305', expectedQty: 50, countedQty: 46, variance: -4, varianceValue: -120, unitPrice: 30, reason: 'Shrinkage/Theft', approved: true },
+      { itemName: 'Aspirin 75mg', batch: 'AS2402', expectedQty: 200, countedQty: 192, variance: -8, varianceValue: -240, unitPrice: 6, reason: 'Expired & Discarded', approved: true },
     ]
   },
   {
@@ -355,8 +370,21 @@ export const stockAudits: StockAudit[] = [
     blindCount: true, status: 'Pending Review', countedBy: 'Priya Singh',
     totalVarianceValue: -180,
     items: [
-      { itemName: 'Cetirizine 10mg', batch: 'CZ2403', expectedQty: 80, countedQty: 78, variance: -2, varianceValue: -48 },
-      { itemName: 'Metformin 500mg', batch: 'MF2405', expectedQty: 120, countedQty: 116, variance: -4, varianceValue: -132 },
+      { itemName: 'Cetirizine 10mg', batch: 'CZ2403', expectedQty: 80, countedQty: 78, variance: -2, varianceValue: -48, unitPrice: 24 },
+      { itemName: 'Metformin 500mg', batch: 'MF2405', expectedQty: 120, countedQty: 116, variance: -4, varianceValue: -132, unitPrice: 30, inTransitExcluded: 10 },
+    ]
+  },
+  {
+    id: 'AUD-003', branchId: 'br1', date: '2026-08-15', scope: 'By Category', scopeFilter: 'Antibiotic',
+    blindCount: false, status: 'Counting', countedBy: 'Rahul Sharma',
+    totalVarianceValue: 0,
+    items: [
+      { itemName: 'Azithromycin 500mg', batch: 'AZ2402', expectedQty: 45, countedQty: 0, variance: 0, varianceValue: 0, unitPrice: 90 },
+      { itemName: 'Amoxicillin 250mg', batch: 'AM2410', expectedQty: 60, countedQty: 0, variance: 0, varianceValue: 0, unitPrice: 28 },
+      { itemName: 'Azee 500', batch: 'AZEE01', expectedQty: 25, countedQty: 0, variance: 0, varianceValue: 0, unitPrice: 100 },
+    ],
+    duplicatesDetected: [
+      { item1: 'Azithromycin 500mg', item2: 'Azee 500', similarity: 0.72 }
     ]
   },
 ];

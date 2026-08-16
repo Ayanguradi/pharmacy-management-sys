@@ -226,6 +226,8 @@ export type AttendanceStatus = 'Present' | 'Absent' | 'Half-Day' | 'Leave' | 'Ho
 export interface AttendanceRecord {
   date: string; // YYYY-MM-DD
   status: AttendanceStatus;
+  clockInTime?: string; // HH:MM format, for punctuality tracking
+  clockOutTime?: string;
 }
 
 export interface LeaveBalance {
@@ -257,6 +259,7 @@ export interface StaffMember {
   pin?: string;
   active: boolean; // For login access
   assignedBranchId?: string; // Required for Manager/Staff, not for Owner/Admin
+  lastLoginAt?: string; // ISO date-time string, undefined = never logged in
   
   // HR fields
   email?: string;
@@ -293,9 +296,18 @@ export interface Expense {
 }
 
 // ─── Branch Transfer ────────────────────────────────────────────
-export type TransferStatus = 'Draft' | 'In Transit' | 'Received' | 'Partially Received' | 'Disputed';
+export type TransferStatus = 'Draft' | 'Sent' | 'In Transit' | 'Received' | 'Partially Received' | 'Disputed' | 'Confirmed Delivered';
 export type TransferType = 'Send' | 'Request';
 export type TransferLineStatus = 'Matched' | 'Short' | 'Excess' | 'Missing' | 'Pending';
+export type ChargeType = 'No Charge' | 'At Purchase Price' | 'At MRP' | 'Custom';
+export type DestinationType = 'Internal' | 'External';
+
+export interface ExternalDestination {
+  name: string;
+  contactPerson: string;
+  mobile: string;
+  address: string;
+}
 
 export interface TransferLineItem {
   itemName: string;
@@ -303,6 +315,8 @@ export interface TransferLineItem {
   expiry: string;
   qtySent: number;
   qtyReceived?: number;
+  unitPrice?: number; // Based on charge type
+  lineChargeType?: ChargeType; // Per-line override
   status: TransferLineStatus;
 }
 
@@ -310,13 +324,18 @@ export interface BranchTransfer {
   id: string;
   sourceBranchId: string;
   destinationBranchId: string;
+  destinationType: DestinationType;
+  externalDestination?: ExternalDestination;
   type: TransferType;
+  chargeType: ChargeType;
+  totalValue?: number;
   initiatedBy: string;
   date: string;
   receivedDate?: string;
   status: TransferStatus;
   items: TransferLineItem[];
   notes?: string;
+  amendments?: { timestamp: string; user: string; action: string }[];
 }
 
 // ─── Disposal & Audit ───────────────────────────────────────────
@@ -336,8 +355,8 @@ export interface DisposalLog {
 }
 
 export type AuditScope = 'Full Inventory' | 'By Category' | 'By Rack' | 'Random Sample' | 'Specific Items';
-export type AuditStatus = 'In Progress' | 'Pending Review' | 'Completed';
-export type VarianceReason = 'Shrinkage/Theft' | 'Breakage/Damage' | 'Expired & Discarded' | 'Miscount/Data Error' | 'Found Extra' | 'Other';
+export type AuditStatus = 'In Progress' | 'Counting' | 'Pending Review' | 'Completed';
+export type VarianceReason = 'Shrinkage/Theft' | 'Breakage/Damage' | 'Expired & Discarded' | 'Miscount/Data Error' | 'Duplicate Item/Batch Record' | 'Found Extra' | 'Other';
 
 export interface AuditLineItem {
   itemName: string;
@@ -348,6 +367,9 @@ export interface AuditLineItem {
   varianceValue: number; // variance * purchasePrice
   reason?: VarianceReason;
   approved?: boolean;
+  skipped?: boolean; // explicitly skipped during count (not treated as zero)
+  inTransitExcluded?: number; // qty excluded from expected because in-transit
+  unitPrice?: number; // purchase price for value calculation
 }
 
 export interface StockAudit {
@@ -363,6 +385,7 @@ export interface StockAudit {
   approvedBy?: string;
   items: AuditLineItem[];
   totalVarianceValue: number;
+  duplicatesDetected?: { item1: string; item2: string; similarity: number }[];
 }
 
 // ─── Business Reports ───────────────────────────────────────────

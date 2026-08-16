@@ -33,10 +33,16 @@ export function Button({ variant = 'primary', size = 'md', icon, className = '',
   );
 }
 
-export function Card({ children, className = '', hover = false }: { children: ReactNode; className?: string; hover?: boolean }) {
+export function Card({ children, className = '', hover = false, title, action }: { children: ReactNode; className?: string; hover?: boolean; title?: string; action?: ReactNode }) {
   return (
     <div className={`bg-white rounded-xl shadow-card ${hover ? 'transition-shadow hover:shadow-card-hover' : ''} ${className}`}>
-      {children}
+      {title && (
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
+          <h3 className="text-base font-semibold text-neutral-800">{title}</h3>
+          {action}
+        </div>
+      )}
+      {title ? <div className="p-6">{children}</div> : children}
     </div>
   );
 }
